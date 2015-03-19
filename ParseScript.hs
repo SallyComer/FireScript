@@ -9,8 +9,7 @@ data Statement = Assign String Expr
     | While Expr Statement
     | If Expr Statement
     | Else Statement
-    | Elif Statement
-    | For Statement Expr Statement
+    | Elif Expr Statement
     | Declare String
     | DeclAssign String Expr
     | Return Expr deriving (Show, Eq)
@@ -28,7 +27,7 @@ data Expr = Number Int
 
 
 
-data Declaration = FuncDec String [String] [Statement]
+data Declaration = FuncDec String [String] Statement deriving (Show)
 
 
 
@@ -62,4 +61,51 @@ parseOp (Right (arg1, (OperatorT op:rest))) = case parseExpr rest of
     Right (arg2, rest') -> Right (Operator op arg1 arg2, rest')
 parseOp a = a
 
-parseText = parseExpr . tokenize
+
+parseSemicolons :: Parser [Statement]
+parseSemicolons (RBrace:rest) = Right ([], rest)
+parseSemicolons a = case parseStatement a of
+    Right (stmt, Semicolon:rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+    Right (stmt, RBrace:rest) -> Right ([stmt], rest)
+
+
+parseStatement :: Parser Statement
+parseStatement ((NameT name):EqT:rest) = case parseExpr rest of
+    Right (thing, rest') -> Right (Assign name thing, rest')
+parseStatement (LBrace:rest) = case parseSemicolons rest of
+    Right (stmts, rest') -> Right (Block stmts, rest')
+parseStatement (KeywordT "If":rest) = case parseExpr rest of
+    Right (cond, rest') -> case parseStatement rest' of
+        Right (stmt, rest'') -> Right (If cond stmt, rest'')
+parseStatement (KeywordT "While":rest) = case parseExpr rest of
+    Right (cond, rest') -> case parseStatement rest' of
+        Right (stmt, rest'') -> Right (While cond stmt, rest'')
+parseStatement (KeywordT "Else":rest) = case parseStatement rest of
+    Right (stmt, rest') -> Right (Else stmt, rest')
+parseStatement (KeywordT "Elif":rest) = case parseExpr rest of
+    Right (cond, rest') -> case parseStatement rest' of
+        Right (stmt, rest'') -> Right (Elif cond stmt, rest'')
+parseStatement (KeywordT "Var":NameT name:EqT:rest) = case parseExpr rest of
+    Right (val, rest') -> Right (DeclAssign name val, rest')
+parseStatement (KeywordT "Var":NameT name:rest) = Right (Declare name, rest)
+parseStatement (KeywordT "Return":rest) = case parseExpr rest of
+    Right (val, rest') -> Right (Return val, rest')
+parseStatement a = case parseExpr a of
+    Right (val, rest) -> Right (Do val, rest)
+
+
+parseFuncDeclArgs :: Parser [String]
+parseFuncDeclArgs (RParen:rest) = Right ([], rest)
+parseFuncDeclArgs (NameT arg:RParen:rest) = Right ([arg], rest)
+parseFuncDeclArgs (NameT arg:Comma:rest) = case parseFuncDeclArgs rest of
+    Right (args, rest') -> Right (arg:args, rest')
+
+parseDecl :: Parser Declaration
+parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest of
+    Right (args, rest') -> case parseStatement rest' of
+        Right (body, rest'') -> Right (FuncDec name args body, rest'')
+
+expression = parseExpr . tokenize
+statement = parseStatement . tokenize
+decl = parseDecl . tokenize
