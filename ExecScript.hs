@@ -148,6 +148,9 @@ runMain :: Namespace -> Value
 runMain globals = evaluate globals (Namespace []) (Call "main" [])
 
 
+runText :: String -> Value
+runText text = runMain $ loadScratchText text
+
 stdEnv :: Namespace
 stdEnv = Namespace []
 
