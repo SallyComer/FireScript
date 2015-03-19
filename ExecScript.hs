@@ -87,7 +87,7 @@ exec globals ls@(Namespace locals) (Do val) = Right $ Namespace $ ("_", evaluate
 exec globals ls@(Namespace locals) (Return thing) = Left (evaluate globals ls thing)
 exec globals locals (Block stmts) = case execs globals locals stmts of
     Left thing -> Left thing
-    Right blah -> Right locals
+    Right blah -> Right $ updateNames locals blah
 
 exec globals locals (While val stmt)
     | isTrue (evaluate globals locals val) = case exec globals locals stmt of
