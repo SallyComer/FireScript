@@ -128,3 +128,17 @@ declare globals@(Namespace gs) (FuncDec str args body) = Namespace $ (str, FuncV
     makeLocals :: [Value] -> Namespace
     makeLocals argVals = Namespace $ zip args argVals
 
+load :: Namespace -> Program -> Namespace
+load globals (Program decls) = foldl declare globals decls
+
+loadFromScratch :: Program -> Namespace
+loadFromScratch prog = load stdEnv prog
+
+
+loadScratchText text = case program text of
+    Right (a, _) -> loadFromScratch a
+
+
+stdEnv :: Namespace
+stdEnv = Namespace []
+
