@@ -17,7 +17,8 @@ data Token = OperatorT String
     | Comma
     | Semicolon
     | Newline 
-    | KeywordT String deriving (Show, Eq)
+    | KeywordT
+    | EqT String deriving (Show, Eq)
 
 
 readOperator :: Reader Token
@@ -47,7 +48,7 @@ readKeyword a = KeywordT a
 
 isSymbol a = elem a "(){}[],;"
 
-isOperator a = elem a "+=:/$#!&*%^|"
+isOperator a = elem a "+:/$#!&*%^|"
 
 isDigit a = elem a "1234567890"
 
@@ -80,7 +81,8 @@ scriptClauses = [
     Clause 5 (not . isNameBody) (emitPush readName) 0,
     Clause 0 isKeywordStart append 6,
     Clause 6 isKeywordBody append 6,
-    Clause 6 (not . isKeywordBody) (emitPush readKeyword) 0]
+    Clause 6 (not . isKeywordBody) (emitPush readKeyword) 0,
+    Clause 0 (== '=') (emit (const EqT)) 0]
 
 
 
