@@ -106,6 +106,14 @@ parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest 
     Right (args, rest') -> case parseStatement rest' of
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
 
+
+parseProgram :: Parser Program
+parseProgram [] = Right (Program [], [])
+parseProgram a = case parseDecl a of
+    Right (def, rest) -> case parseProgram rest of
+        Right (Program defs, rest') -> Right (Program (def:defs), rest')
+
 expression = parseExpr . tokenize
 statement = parseStatement . tokenize
 decl = parseDecl . tokenize
+program = parseProgram . tokenize
