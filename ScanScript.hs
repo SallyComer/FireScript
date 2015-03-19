@@ -17,8 +17,8 @@ data Token = OperatorT String
     | Comma
     | Semicolon
     | Newline 
-    | KeywordT
-    | EqT String deriving (Show, Eq)
+    | KeywordT String
+    | EqT deriving (Show, Eq)
 
 
 readOperator :: Reader Token
