@@ -1,11 +1,7 @@
 
 
-Def foo(x) {
-    print(x);
-    Return x;
-}
-
 Def main() {
-    foo(5);
-    foo("asdfg");
+    x = 5;
+    y = "asdf";
+    Return [x, y];
 }

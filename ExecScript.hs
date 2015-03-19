@@ -15,6 +15,12 @@ instance Eq Value where
     Void == Void = True
     _ == _ = False
 
+instance Show Value where
+    show (NumberV i) = show i
+    show (StringV s) = show s
+    show (ListV l) = show l
+    show Void = "null"
+
 data Namespace = Namespace [(String, Value)]
 
 data WithArgs = WithArgs Namespace Namespace
@@ -137,6 +143,9 @@ loadFromScratch prog = load stdEnv prog
 
 loadScratchText text = case program text of
     Right (a, _) -> loadFromScratch a
+
+runMain :: Namespace -> Value
+runMain globals = evaluate globals (Namespace []) (Call "main" [])
 
 
 stdEnv :: Namespace
