@@ -66,6 +66,7 @@ scriptClauses = [
     Clause 1 (== '"') (appendEmit readString) 0,
     Clause 0 isSymbol (appendEmit readSymbol) 0,
     Clause 0 isOperator append 2,
+    Clause 2 isOperator append 2,
     Clause 2 (not . isOperator) (emitPush readOperator) 0,
     Clause 0 isDigit append 3,
     Clause 0 (== '-') append 3,
