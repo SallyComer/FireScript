@@ -15,8 +15,7 @@ data Token = OperatorT String
     | LParen
     | RParen
     | Comma
-    | Semicolon
-    | Newline 
+    | Semicolon 
     | KeywordT String
     | EqT deriving (Show, Eq)
 
@@ -58,6 +57,8 @@ isNameBody a = (isNameStart a) || (elem a "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 isKeywordStart a = elem a "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 isKeywordBody a = (elem a "abcdefghijklmnopqrstuvwxyz") || (isKeywordStart a)
 
+isSpace a = elem a " \r\n\t"
+
 scriptClauses = [
     Clause 0 (== '"') append 1,
     Clause 1 (== '\\') append 7,
@@ -72,10 +73,9 @@ scriptClauses = [
     Clause 0 (== '-') append 3,
     Clause 3 isDigit append 3,
     Clause 3 (not . isDigit) (emitPush readNumber) 0,
-    Clause 0 (== ' ') ignore 0,
-    Clause 0 (== '\n') (emit (const Newline)) 0,
+    Clause 0 isSpace ignore 0,
     Clause 0 (== '@') ignore 4,
-    Clause 4 (== '\n') (emit (const Newline)) 0,
+    Clause 4 (== '\n') ignore 0,
     Clause 4 (const True) ignore 4,
     Clause 0 isNameStart append 5,
     Clause 5 isNameBody append 5,
