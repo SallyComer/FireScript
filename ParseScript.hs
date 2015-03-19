@@ -31,7 +31,7 @@ data Declaration = FuncDec String [String] Statement deriving (Show)
 
 
 
-data Program = Program [Declaration]
+data Program = Program [Declaration] deriving (Show)
 
 
 type Parser a = [Token] -> Either String (a, [Token])
@@ -67,7 +67,6 @@ parseSemicolons (RBrace:rest) = Right ([], rest)
 parseSemicolons a = case parseStatement a of
     Right (stmt, Semicolon:rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
-    Right (stmt, RBrace:rest) -> Right ([stmt], rest)
 
 
 parseStatement :: Parser Statement
@@ -105,7 +104,7 @@ parseDecl :: Parser Declaration
 parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest of
     Right (args, rest') -> case parseStatement rest' of
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
-
+parseDecl a = error (show a)
 
 parseProgram :: Parser Program
 parseProgram [] = Right (Program [], [])
