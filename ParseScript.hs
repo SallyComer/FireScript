@@ -67,9 +67,11 @@ parseSemicolons (RBrace:rest) = Right ([], rest)
 parseSemicolons a = case parseStatement a of
     Right (stmt, Semicolon:rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
+    a -> error (show a)
 
 
 parseStatement :: Parser Statement
+parseStatement ((NameT name):EqT:(OperatorT op):rest) = parseStatement ((NameT name):EqT:(NameT name):(OperatorT op):rest)
 parseStatement ((NameT name):EqT:rest) = case parseExpr rest of
     Right (thing, rest') -> Right (Assign name thing, rest')
 parseStatement (LBrace:rest) = case parseSemicolons rest of

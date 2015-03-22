@@ -47,7 +47,8 @@ readKeyword a = KeywordT a
 
 isSymbol a = elem a "(){}[],;"
 
-isOperator a = elem a "+:/$#!&*%^|-"
+isOperator a = elem a "+:/$#!&*%^|-="
+isOperatorStart a = elem a "+:/$#!&*%^|-"
 
 isDigit a = elem a "1234567890"
 
@@ -66,7 +67,7 @@ scriptClauses = [
     Clause 7 (const True) append 1,
     Clause 1 (== '"') (appendEmit readString) 0,
     Clause 0 isSymbol (appendEmit readSymbol) 0,
-    Clause 0 isOperator append 2,
+    Clause 0 isOperatorStart append 2,
     Clause 2 isOperator append 2,
     Clause 2 (not . isOperator) (emitPush readOperator) 0,
     Clause 0 isDigit append 3,

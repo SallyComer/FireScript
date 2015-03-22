@@ -23,7 +23,10 @@ stdEnv = Namespace [
     ("init", adaptToVal sInit),
     ("last", adaptToVal sLast),
     ("set", adaptToVal sSet),
-    ("insert", adaptToVal sInsert)]
+    ("insert", adaptToVal sInsert),
+    ("null", Void),
+    ("bool", adaptToVal sBool),
+    ("eq", adaptToVal sEquals)]
 
 type SFunction = [Value] -> IO Value
 
@@ -90,4 +93,15 @@ sSet [ListV xs, NumberV i, val] = return $ ListV $ set xs i val
 sInsert :: SFunction
 sInsert [ListV xs, NumberV i, val] = return $ ListV $ insert xs i val
 
+sBool :: SFunction
+sBool [a] = return $ if isTrue a then NumberV 1 else NumberV 0
+
+instance Adaptable (Value -> Value -> Ordering) where
+    adapt f [a, b] = return $ NumberV $ case f a b of
+        LT -> -1
+        EQ -> 0
+        GT -> 1
+
+sEquals :: SFunction
+sEquals [a, b] = return $ NumberV $ if (a == b) then 1 else 0
 

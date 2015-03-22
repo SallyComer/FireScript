@@ -19,6 +19,8 @@ instance Eq Value where
     Void == Void = True
     _ == _ = False
 
+
+
 instance Show Value where
     show (NumberV i) = show i
     show (StringV s) = show s
