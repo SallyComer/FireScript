@@ -178,4 +178,8 @@ runMain globals = evaluate globals (Namespace []) (Call "main" [])
 runText :: String -> IO Value
 runText text = runMain $ loadScratchText text
 
+importProgram :: Namespace -> String -> Namespace
+importProgram globals text = case program text of
+    Right (a, _) -> load globals a
+
 
