@@ -7,6 +7,7 @@ data Value = NumberV Int
     | ListV [Value]
     | FuncV FuncVT
     | Void
+    | ErrorV String
 
 
 type FuncVT = Namespace -> [IO Value] -> IO Value
@@ -78,7 +79,7 @@ createFunction :: Declaration -> [Value] -> Value
 createFunction (FuncDec _ args body) = undefined
 
 callOperator :: Namespace -> String -> IO Value -> IO Value -> IO Value
-callOperator = undefined
+callOperator globals name arg1 arg2 = callFunction globals (unsafeSearch name globals) [arg1, arg2]
 
 callFunction :: Namespace -> Value -> [IO Value] -> IO Value
 callFunction globals (FuncV func) args = func globals args
@@ -164,7 +165,7 @@ load :: Namespace -> Program -> Namespace
 load globals (Program decls) = foldl declare globals decls
 
 loadFromScratch :: Program -> Namespace
-loadFromScratch prog = load stdEnv prog
+loadFromScratch prog = load (Namespace []) prog
 
 
 loadScratchText text = case program text of
@@ -177,6 +178,4 @@ runMain globals = evaluate globals (Namespace []) (Call "main" [])
 runText :: String -> IO Value
 runText text = runMain $ loadScratchText text
 
-stdEnv :: Namespace
-stdEnv = Namespace []
 
