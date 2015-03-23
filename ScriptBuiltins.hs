@@ -39,10 +39,10 @@ stdEnv = Namespace [
     ("map", adaptToVal sMap),
     ("reduce", adaptToVal sReduce)]
 
-type SFunction = [Value] -> IO Value
+type SFunction = Namespace -> [Value] -> IO Value
 
 adaptToVal :: SFunction -> Value
-adaptToVal func = FuncV (\globals args -> (flipListIO args) >>= func)
+adaptToVal func = FuncV (\globals args -> (flipListIO args) >>= (func globals))
 
 
 
@@ -52,49 +52,49 @@ class Adaptable f where
 
 
 sPrint :: SFunction
-sPrint [StringV str] = putStrLn str >> return Void
-sPrint [ErrorV a] = return (ErrorV a)
-sPrint [a] = print a >> return Void
-sPrint a = return (ErrorV (show a))
+sPrint globals [StringV str] = putStrLn str >> return Void
+sPrint globals [ErrorV a] = return (ErrorV a)
+sPrint globals [a] = print a >> return Void
+sPrint globals a = return (ErrorV (show a))
 
 instance Adaptable (Int -> Int -> Int) where
-    adapt f [NumberV a, NumberV b] = return (NumberV (f a b))
+    adapt f _ [NumberV a, NumberV b] = return (NumberV (f a b))
 
 sSubtract :: SFunction
 sSubtract = adapt ((-) :: Int -> Int -> Int)
 
 sAdd :: SFunction
-sAdd [NumberV a, NumberV b] = return $ NumberV (a + b)
-sAdd [StringV a, b] = return $ StringV (a ++ (toString b))
-sAdd [ListV a, ListV b] = return $ ListV (a ++ b)
+sAdd globals [NumberV a, NumberV b] = return $ NumberV (a + b)
+sAdd globals [StringV a, b] = return $ StringV (a ++ (toString b))
+sAdd globals [ListV a, ListV b] = return $ ListV (a ++ b)
 
 sMultiply :: SFunction
-sMultiply [NumberV a, NumberV b] = return $ NumberV (a * b)
-sMultiply [StringV a, NumberV b] = return $ StringV (concat $ replicate b a)
-sMultiply [ListV a, NumberV b] = return $ ListV (concat $ replicate b a)
+sMultiply globals [NumberV a, NumberV b] = return $ NumberV (a * b)
+sMultiply globals [StringV a, NumberV b] = return $ StringV (concat $ replicate b a)
+sMultiply globals [ListV a, NumberV b] = return $ ListV (concat $ replicate b a)
 
 sDivide :: SFunction
 sDivide = adapt (div :: Int -> Int -> Int)
 
 
 sIndex :: SFunction
-sIndex [ListV a, NumberV b] = return (a !! b)
-sIndex [StringV a, NumberV b] = return $ StringV ([a !! b])
+sIndex globals [ListV a, NumberV b] = return (a !! b)
+sIndex globals [StringV a, NumberV b] = return $ StringV ([a !! b])
 
 sCons :: SFunction
-sCons [a, ListV b] = return (ListV (a:b))
+sCons globals [a, ListV b] = return (ListV (a:b))
 
 sHead :: SFunction
-sHead [ListV a] = return $ head a
+sHead globals [ListV a] = return $ head a
 
 sTail :: SFunction
-sTail [ListV a] = return $ ListV $ tail a
+sTail globals [ListV a] = return $ ListV $ tail a
 
 sInit :: SFunction
-sInit [ListV a] = return $ ListV $ init a
+sInit globals [ListV a] = return $ ListV $ init a
 
 sLast :: SFunction
-sLast [ListV a] = return $ last a
+sLast globals [ListV a] = return $ last a
 
 set :: [a] -> Int -> a -> [a]
 set xs i val = (take i xs) ++ (val:(drop (succ i) xs))
@@ -103,17 +103,17 @@ insert :: [a] -> Int -> a -> [a]
 insert xs i val = (take i xs) ++ [val] ++ (drop i xs)
 
 sSet :: SFunction
-sSet [ListV xs, NumberV i, val] = return $ ListV $ set xs i val
+sSet globals [ListV xs, NumberV i, val] = return $ ListV $ set xs i val
 
 sInsert :: SFunction
-sInsert [ListV xs, NumberV i, val] = return $ ListV $ insert xs i val
+sInsert globals [ListV xs, NumberV i, val] = return $ ListV $ insert xs i val
 
 sBool :: SFunction
-sBool [a] = return $ if isTrue a then NumberV 1 else NumberV 0
+sBool globals [a] = return $ if isTrue a then NumberV 1 else NumberV 0
 
 
 sEquals :: SFunction
-sEquals [a, b] = return $ NumberV $ if (a == b) then 1 else 0
+sEquals globals [a, b] = return $ NumberV $ if (a == b) then 1 else 0
 
 instance Ord Value where
     compare (ListV a) (ListV b) = compare a b
@@ -124,37 +124,37 @@ instance Ord Value where
     compare a Void = GT
 
 sCompare :: SFunction
-sCompare [a, b] = return $ NumberV $ case compare a b of
+sCompare globals [a, b] = return $ NumberV $ case compare a b of
     LT -> -1
     EQ -> 0
     GT -> 1
 
 sLessThan :: SFunction
-sLessThan [a, b] = return $ NumberV $ case a < b of
+sLessThan globals [a, b] = return $ NumberV $ case a < b of
     True -> 1
     False -> 0
 
 sGreaterThan :: SFunction
-sGreaterThan [a, b] = return $ NumberV $ case a > b of
+sGreaterThan globals [a, b] = return $ NumberV $ case a > b of
     True -> 1
     False -> 0
 
 sLessThanEquals :: SFunction
-sLessThanEquals [a, b] = return $ NumberV $ case a <= b of
+sLessThanEquals globals [a, b] = return $ NumberV $ case a <= b of
     True -> 1
     False -> 0
 
 sGreaterThanEquals :: SFunction
-sGreaterThanEquals [a, b] = return $ NumberV $ case a >= b of
+sGreaterThanEquals globals [a, b] = return $ NumberV $ case a >= b of
     True -> 1
     False -> 0
 
 sReadFile :: SFunction
-sReadFile [StringV fname] = fmap StringV (readFile fname)
+sReadFile globals [StringV fname] = fmap StringV (readFile fname)
 
 sWriteFile :: SFunction
-sWriteFile [StringV fname, StringV text] = (writeFile fname text) >> return Void
-sWriteFile [StringV fname] = (writeFile fname "") >> return Void
+sWriteFile globals [StringV fname, StringV text] = (writeFile fname text) >> return Void
+sWriteFile globals [StringV fname] = (writeFile fname "") >> return Void
 
 toString :: Value -> String
 toString (StringV a) = a
@@ -163,13 +163,14 @@ toString (ListV a) = show a
 toString Void = "null"
 
 sJoin :: SFunction
-sJoin [ListV a, StringV b] = return $ StringV $ intercalate b (map toString a)
-sJoin [ListV a] = return $ StringV $ (concat $ map toString a)
+sJoin globals [ListV a, StringV b] = return $ StringV $ intercalate b (map toString a)
+sJoin globals [ListV a] = return $ StringV $ (concat $ map toString a)
 
 sMap :: SFunction
-sMap [FuncV f, ListV a] = f (Namespace []) (map return a)
+sMap globals [FuncV f, ListV xs] = (fmap ListV) $ flipListIO (map thing xs) where
+    thing a = f globals [return a]
 
 sReduce :: SFunction
-sReduce [FuncV f, ListV xs] = foldr1 thing (map return xs) where
-    thing a b = f (Namespace []) [a, b]
+sReduce globals [FuncV f, ListV xs] = foldr1 thing (map return xs) where
+    thing a b = f globals [a, b]
 

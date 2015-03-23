@@ -26,8 +26,9 @@ instance Show Value where
     show (StringV s) = show s
     show (ListV l) = show l
     show Void = "null"
+    show (FuncV _) = "<function>"
 
-data Namespace = Namespace [(String, Value)]
+data Namespace = Namespace [(String, Value)] deriving (Show)
 
 data WithArgs = WithArgs Namespace Namespace
 
@@ -64,6 +65,7 @@ nameExists scope str = case search str scope of
 
 unsafeSearch str scope = case search str scope of
     Right a -> a
+    Left a -> error (show scope)
 
 unEither (Right a) = a
 unEither (Left a) = error (show a)
