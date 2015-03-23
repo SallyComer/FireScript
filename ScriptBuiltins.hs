@@ -2,7 +2,7 @@
 module ScriptBuiltins where
 
 import ExecScript
-
+import Data.List (intercalate)
 stdEnv :: Namespace
 stdEnv = Namespace [
     ("print", adaptToVal sPrint),
@@ -32,7 +32,11 @@ stdEnv = Namespace [
     ("<", adaptToVal sLessThan),
     (">", adaptToVal sGreaterThan),
     ("<=", adaptToVal sLessThanEquals),
-    (">=", adaptToVal sGreaterThanEquals)]
+    (">=", adaptToVal sGreaterThanEquals),
+    ("readFile", adaptToVal sReadFile),
+    ("writeFile", adaptToVal sWriteFile),
+    ("join", adaptToVal sJoin),
+    ("map", adaptToVal sMap)]
 
 type SFunction = [Value] -> IO Value
 
@@ -60,7 +64,7 @@ sSubtract = adapt ((-) :: Int -> Int -> Int)
 
 sAdd :: SFunction
 sAdd [NumberV a, NumberV b] = return $ NumberV (a + b)
-sAdd [StringV a, StringV b] = return $ StringV (a ++ b)
+sAdd [StringV a, b] = return $ StringV (a ++ (toString b))
 sAdd [ListV a, ListV b] = return $ ListV (a ++ b)
 
 sMultiply :: SFunction
@@ -74,7 +78,7 @@ sDivide = adapt (div :: Int -> Int -> Int)
 
 sIndex :: SFunction
 sIndex [ListV a, NumberV b] = return (a !! b)
-sIndex a = return (ErrorV (show a))
+sIndex [StringV a, NumberV b] = return $ StringV ([a !! b])
 
 sCons :: SFunction
 sCons [a, ListV b] = return (ListV (a:b))
@@ -143,4 +147,24 @@ sGreaterThanEquals :: SFunction
 sGreaterThanEquals [a, b] = return $ NumberV $ case a >= b of
     True -> 1
     False -> 0
-    
+
+sReadFile :: SFunction
+sReadFile [StringV fname] = fmap StringV (readFile fname)
+
+sWriteFile :: SFunction
+sWriteFile [StringV fname, StringV text] = (writeFile fname text) >> return Void
+sWriteFile [StringV fname] = (writeFile fname "") >> return Void
+
+toString :: Value -> String
+toString (StringV a) = a
+toString (NumberV a) = show a
+toString (ListV a) = show a
+toString Void = "null"
+
+sJoin :: SFunction
+sJoin [ListV a, StringV b] = return $ StringV $ intercalate b (map toString a)
+sJoin [ListV a] = return $ StringV $ (concat $ map toString a)
+
+sMap :: SFunction
+sMap [FuncV f, ListV a] = f (Namespace []) (map return a)
+
