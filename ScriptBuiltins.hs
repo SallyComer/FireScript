@@ -36,7 +36,8 @@ stdEnv = Namespace [
     ("readFile", adaptToVal sReadFile),
     ("writeFile", adaptToVal sWriteFile),
     ("join", adaptToVal sJoin),
-    ("map", adaptToVal sMap)]
+    ("map", adaptToVal sMap),
+    ("reduce", adaptToVal sReduce)]
 
 type SFunction = [Value] -> IO Value
 
@@ -167,4 +168,8 @@ sJoin [ListV a] = return $ StringV $ (concat $ map toString a)
 
 sMap :: SFunction
 sMap [FuncV f, ListV a] = f (Namespace []) (map return a)
+
+sReduce :: SFunction
+sReduce [FuncV f, ListV xs] = foldr1 thing (map return xs) where
+    thing a b = f (Namespace []) [a, b]
 
