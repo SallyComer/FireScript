@@ -26,7 +26,13 @@ stdEnv = Namespace [
     ("insert", adaptToVal sInsert),
     ("null", Void),
     ("bool", adaptToVal sBool),
-    ("eq", adaptToVal sEquals)]
+    ("eq", adaptToVal sEquals),
+    ("?=", adaptToVal sEquals),
+    ("cmp", adaptToVal sCompare),
+    ("<", adaptToVal sLessThan),
+    (">", adaptToVal sGreaterThan),
+    ("<=", adaptToVal sLessThanEquals),
+    (">=", adaptToVal sGreaterThanEquals)]
 
 type SFunction = [Value] -> IO Value
 
@@ -53,10 +59,14 @@ sSubtract :: SFunction
 sSubtract = adapt ((-) :: Int -> Int -> Int)
 
 sAdd :: SFunction
-sAdd = adapt ((+) :: Int -> Int -> Int)
+sAdd [NumberV a, NumberV b] = return $ NumberV (a + b)
+sAdd [StringV a, StringV b] = return $ StringV (a ++ b)
+sAdd [ListV a, ListV b] = return $ ListV (a ++ b)
 
 sMultiply :: SFunction
-sMultiply = adapt ((*) :: Int -> Int -> Int)
+sMultiply [NumberV a, NumberV b] = return $ NumberV (a * b)
+sMultiply [StringV a, NumberV b] = return $ StringV (concat $ replicate b a)
+sMultiply [ListV a, NumberV b] = return $ ListV (concat $ replicate b a)
 
 sDivide :: SFunction
 sDivide = adapt (div :: Int -> Int -> Int)
@@ -96,12 +106,41 @@ sInsert [ListV xs, NumberV i, val] = return $ ListV $ insert xs i val
 sBool :: SFunction
 sBool [a] = return $ if isTrue a then NumberV 1 else NumberV 0
 
-instance Adaptable (Value -> Value -> Ordering) where
-    adapt f [a, b] = return $ NumberV $ case f a b of
-        LT -> -1
-        EQ -> 0
-        GT -> 1
 
 sEquals :: SFunction
 sEquals [a, b] = return $ NumberV $ if (a == b) then 1 else 0
 
+instance Ord Value where
+    compare (ListV a) (ListV b) = compare a b
+    compare (StringV a) (StringV b) = compare a b
+    compare (NumberV a) (NumberV b) = compare a b
+    compare Void Void = EQ
+    compare Void a = LT
+    compare a Void = GT
+
+sCompare :: SFunction
+sCompare [a, b] = return $ NumberV $ case compare a b of
+    LT -> -1
+    EQ -> 0
+    GT -> 1
+
+sLessThan :: SFunction
+sLessThan [a, b] = return $ NumberV $ case a < b of
+    True -> 1
+    False -> 0
+
+sGreaterThan :: SFunction
+sGreaterThan [a, b] = return $ NumberV $ case a > b of
+    True -> 1
+    False -> 0
+
+sLessThanEquals :: SFunction
+sLessThanEquals [a, b] = return $ NumberV $ case a <= b of
+    True -> 1
+    False -> 0
+
+sGreaterThanEquals :: SFunction
+sGreaterThanEquals [a, b] = return $ NumberV $ case a >= b of
+    True -> 1
+    False -> 0
+    
