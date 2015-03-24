@@ -40,10 +40,9 @@ stdEnv = Namespace [
     ("reduce", adaptToVal sReduce),
     ("appendFile", adaptToVal sAppendFile)]
 
-type SFunction = Namespace -> [Value] -> IO Value
 
-adaptToVal :: SFunction -> Value
-adaptToVal func = FuncV (\globals args -> (flipListIO args) >>= (func globals))
+
+
 
 
 

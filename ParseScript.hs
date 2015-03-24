@@ -22,9 +22,9 @@ data Expr = Number Int
     | Operator String Expr Expr
     | Call String [Expr]
     | List [Expr]
-    | Name String deriving (Show, Eq)
-
-
+    | Name String 
+    | Get Expr String
+    | Method Expr String [Expr] deriving (Show, Eq)
 
 
 data Declaration = FuncDec String [String] Statement deriving (Show)
@@ -56,6 +56,13 @@ parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
     a -> Left (show a)
 parseExpr a = Left (show a)
+
+parseOp (Right (a, (OperatorT ".":NameT field:LParen:rest))) = parseOp $ case parseCommaStuff rest of
+    Right (args, (RParen:rest')) -> Right (Method a field args, rest')
+
+parseOp (Right (a, (OperatorT ".":NameT field:rest))) = parseOp $ Right (Get a field, rest)
+
+
 
 parseOp (Right (arg1, (OperatorT op:rest))) = case parseExpr rest of
     Right (arg2, rest') -> Right (Operator op arg1 arg2, rest')

@@ -8,9 +8,13 @@ data Value = NumberV Int
     | FuncV FuncVT
     | Void
     | ErrorV String
+    | ObjectV Namespace
 
 
 type FuncVT = Namespace -> [IO Value] -> IO Value
+type SFunction = Namespace -> [Value] -> IO Value
+adaptToVal :: SFunction -> Value
+adaptToVal func = FuncV (\globals args -> (flipListIO args) >>= (func globals))
 
 instance Eq Value where
     (StringV a) == (StringV b) = a == b
@@ -78,15 +82,49 @@ evaluate globals locals (Operator op thing1 thing2) = callOperator globals op (e
 evaluate globals locals (Call func stuff) = (evaluate globals locals (Name func)) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
 evaluate globals locals (List stuff) = (fmap ListV) (flipListIO $ map (evaluate globals locals) stuff)
 evaluate globals locals (Name blah) = return $ unEither $ fallbackSearch blah locals globals
+evaluate globals locals (Get thing str) = fmap (getAttr str) (evaluate globals locals thing)
+evaluate globals locals (Method thing name args) = (evaluate globals locals thing) >>= (\a ->
+    callMethod globals a (getAttr name a) (map (evaluate globals locals) args))
 
-createFunction :: Declaration -> [Value] -> Value
-createFunction (FuncDec _ args body) = undefined
+
+getAttr :: String -> Value -> Value
+getAttr str val = unsafeSearch str (getVars val)
+
+getVars :: Value -> Namespace
+getVars (ObjectV o) = o
+getVars (ListV _) = listClass
+getVars (StringV _) = strClass
+getVars (NumberV _) = numClass
+
+listClass :: Namespace
+listClass = Namespace [
+    ("length", adaptToVal listLength),
+    ("indexOf", adaptToVal listIndexOf)]
+
+
+listLength :: SFunction
+listLength globals [ListV a] = return $ NumberV $ length a
+
+listIndexOf :: SFunction
+listIndexOf globals [ListV a, b] = return $ NumberV $ length (takeWhile (/= b) a)
+
+strClass :: Namespace
+strClass = undefined
+
+numClass :: Namespace
+numClass = undefined
+
+--createFunction :: Declaration -> [Value] -> Value
+--createFunction (FuncDec _ args body) = undefined
 
 callOperator :: Namespace -> String -> IO Value -> IO Value -> IO Value
 callOperator globals name arg1 arg2 = callFunction globals (unsafeSearch name globals) [arg1, arg2]
 
 callFunction :: Namespace -> Value -> [IO Value] -> IO Value
 callFunction globals (FuncV func) args = func globals args
+
+callMethod :: Namespace -> Value -> Value -> [IO Value] -> IO Value
+callMethod globals obj func args = callFunction globals func (return obj:args)
 
 
 exec :: Namespace -> Namespace -> Statement -> IO (Either Value Namespace)

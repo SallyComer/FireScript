@@ -47,8 +47,8 @@ readKeyword a = KeywordT a
 
 isSymbol a = elem a "(){}[],;"
 
-isOperator a = elem a "+:/$#!&*%^|-=?"
-isOperatorStart a = elem a "+:/$#!&*%^|-?"
+isOperator a = elem a "+:/$#!&*%^|-=?."
+isOperatorStart a = elem a "+:/$#!&*%^|-?."
 
 isDigit a = elem a "1234567890"
 
