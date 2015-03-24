@@ -37,7 +37,8 @@ stdEnv = Namespace [
     ("writeFile", adaptToVal sWriteFile),
     ("join", adaptToVal sJoin),
     ("map", adaptToVal sMap),
-    ("reduce", adaptToVal sReduce)]
+    ("reduce", adaptToVal sReduce),
+    ("appendFile", adaptToVal sAppendFile)]
 
 type SFunction = Namespace -> [Value] -> IO Value
 
@@ -155,6 +156,9 @@ sReadFile globals [StringV fname] = fmap StringV (readFile fname)
 sWriteFile :: SFunction
 sWriteFile globals [StringV fname, StringV text] = (writeFile fname text) >> return Void
 sWriteFile globals [StringV fname] = (writeFile fname "") >> return Void
+
+sAppendFile :: SFunction
+sAppendFile globals [StringV fname, StringV text] = (appendFile fname text) >> return Void
 
 toString :: Value -> String
 toString (StringV a) = a
