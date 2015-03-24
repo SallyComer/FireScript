@@ -27,7 +27,8 @@ data Expr = Number Int
     | Method Expr String [Expr] deriving (Show, Eq)
 
 
-data Declaration = FuncDec String [String] Statement deriving (Show)
+data Declaration = FuncDec String [String] Statement
+    | ClassDec String [Declaration] deriving (Show)
 
 
 
@@ -113,7 +114,15 @@ parseDecl :: Parser Declaration
 parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest of
     Right (args, rest') -> case parseStatement rest' of
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
+parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
+    Right (decls, rest') -> Right (ClassDec name decls, rest')
 parseDecl a = error (show a)
+
+parseDecls :: Parser [Declaration]
+parseDecls (RBrace:rest) = Right ([], rest)
+parseDecls blah = case parseDecl blah of
+    Right (decl, rest) -> case parseDecls rest of
+        Right (decls, rest') -> Right (decl:decls, rest')
 
 parseProgram :: Parser Program
 parseProgram [] = Right (Program [], [])

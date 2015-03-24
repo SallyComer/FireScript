@@ -1,10 +1,17 @@
 
 
 
+Class foo {
+    Def doThing(self) {
+        print("did the thing");
+        Return self;
+    }
+    
+}
 
 
 Def main() {
-    Var l = [1, 2, 3];
-    print(l.length());
+    Var obj = foo();
+    obj.doThing();
     Return null;
 }

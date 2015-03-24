@@ -198,6 +198,11 @@ declare globals@(Namespace gs) (FuncDec str args body) = Namespace $ (str, FuncV
     makeLocals :: [IO Value] -> IO Namespace
     makeLocals argVals = fmap (\a -> Namespace $ zip args a) (flipListIO argVals)
 
+declare globals@(Namespace gs) (ClassDec str decls) = Namespace $ (str, adaptToVal constructor):gs where
+    classObj = ObjectV $ foldl declare globals decls
+    constructor :: SFunction
+    constructor globals' [] = return classObj
+
 
 flipListIO :: [IO a] -> IO [a]
 flipListIO [] = return []
