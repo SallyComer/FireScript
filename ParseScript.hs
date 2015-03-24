@@ -28,7 +28,8 @@ data Expr = Number Int
 
 
 data Declaration = FuncDec String [String] Statement
-    | ClassDec String [Declaration] deriving (Show)
+    | ClassDec String [Declaration] 
+    | VarDec String deriving (Show)
 
 
 
@@ -116,6 +117,7 @@ parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest 
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
 parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
     Right (decls, rest') -> Right (ClassDec name decls, rest')
+parseDecl (KeywordT "Var":NameT name:rest) = Right (VarDec name, rest)
 parseDecl a = error (show a)
 
 parseDecls :: Parser [Declaration]

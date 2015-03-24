@@ -203,6 +203,8 @@ declare globals@(Namespace gs) (ClassDec str decls) = Namespace $ (str, adaptToV
     constructor :: SFunction
     constructor globals' [] = return classObj
 
+declare globals@(Namespace gs) (VarDec str) = Namespace $ (str, Void):gs
+
 
 flipListIO :: [IO a] -> IO [a]
 flipListIO [] = return []
