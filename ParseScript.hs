@@ -102,8 +102,18 @@ parseStatement (KeywordT "Var":NameT name:rest) = Right (Declare name, rest)
 parseStatement (KeywordT "Return":rest) = case parseExpr rest of
     Right (val, rest') -> Right (Return val, rest')
 parseStatement a = case parseExpr a of
+    Right (Get obj field, EqT:rest) -> case parseExpr rest of
+        Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
+            Left blah -> Right (blah, rest')
+            Right blah -> error ("got a weird thing from fieldAssign " ++ show blah)
     Right (val, rest) -> Right (Do val, rest)
+   
 
+
+fieldAssign :: (Expr, Expr) -> Either Statement (Expr, Expr)
+fieldAssign (Name blah, rightSide) = Left (Assign blah rightSide)
+fieldAssign (Get obj field, rightSide) = fieldAssign (obj, Operator ":" (Parens obj) (List [Str field, rightSide]))
+fieldAssign a = Right a
 
 parseFuncDeclArgs :: Parser [String]
 parseFuncDeclArgs (RParen:rest) = Right ([], rest)
