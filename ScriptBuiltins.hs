@@ -38,11 +38,8 @@ stdEnv = Namespace [
     ("join", adaptToVal sJoin),
     ("map", adaptToVal sMap),
     ("reduce", adaptToVal sReduce),
-    ("appendFile", adaptToVal sAppendFile)]
-
-
-
-
+    ("appendFile", adaptToVal sAppendFile),
+    ("merge", adaptToVal sMerge)]
 
 
 
@@ -177,3 +174,5 @@ sReduce :: SFunction
 sReduce globals [FuncV f, ListV xs] = foldr1 thing (map return xs) where
     thing a b = f globals [a, b]
 
+sMerge :: SFunction
+sMerge globals [ObjectV (Namespace a), ObjectV (Namespace b)] = return $ ObjectV $ Namespace $ b ++ a
