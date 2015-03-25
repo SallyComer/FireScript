@@ -1,33 +1,15 @@
 
 
-Class _Foo {
-    Def doThing(self, thing) {
-        print(thing);
-        Return null;
-    }
-    Def barf(self) {
-        print("adsf");
-        Return null;
-    }
-}
-
-
-
-Class _Bar {
-    Def __init__(self, x, y) {
-        self = merge(self, _Foo());
-        self.x = x;
-        self.y = y;
-        Return self;
-    }
-    Def chirp(self) {
-        print("chirp chirp");
-        Return null;
+Class _Dingus {
+    Def __call__(self, a, b) {
+        print(a);
+        print(b);
+        Return (a + b);
     }
 }
 Def main() {
-    Var testThing = _Bar(1, 2);
-    testThing.chirp();
-    testThing.doThing(2);
+    Var testThing = _Dingus();
+    Var result = reduce(testThing, [1, 2, 3, 4]);
+    print(result);
     Return null;
 }

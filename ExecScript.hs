@@ -125,6 +125,9 @@ callOperator globals name arg1 arg2 = callFunction globals (unsafeSearch name gl
 
 callFunction :: Namespace -> Value -> [IO Value] -> IO Value
 callFunction globals (FuncV func) args = func globals args
+callFunction globals (ObjectV obj) args | nameExists obj "__call__" = case unsafeSearch "__call__" obj of
+        FuncV func -> func globals ((return $ ObjectV obj):args)
+    | otherwise = error ("object does not have a .__call__ method: " ++ show obj)
 
 callMethod :: Namespace -> Value -> Value -> [IO Value] -> IO Value
 callMethod globals obj func args = callFunction globals func (return obj:args)

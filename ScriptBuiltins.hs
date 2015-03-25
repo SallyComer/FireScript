@@ -167,12 +167,12 @@ sJoin globals [ListV a, StringV b] = return $ StringV $ intercalate b (map toStr
 sJoin globals [ListV a] = return $ StringV $ (concat $ map toString a)
 
 sMap :: SFunction
-sMap globals [FuncV f, ListV xs] = (fmap ListV) $ flipListIO (map thing xs) where
-    thing a = f globals [return a]
+sMap globals [func, ListV xs] = (fmap ListV) $ flipListIO (map thing xs) where
+    thing a = callFunction globals func [return a]
 
 sReduce :: SFunction
-sReduce globals [FuncV f, ListV xs] = foldr1 thing (map return xs) where
-    thing a b = f globals [a, b]
+sReduce globals [func, ListV xs] = foldl1 thing (map return xs) where
+    thing a b = callFunction globals func [a, b]
 
 sMerge :: SFunction
 sMerge globals [ObjectV (Namespace a), ObjectV (Namespace b)] = return $ ObjectV $ Namespace $ b ++ a
