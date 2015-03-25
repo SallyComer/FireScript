@@ -108,6 +108,9 @@ listLength globals [ListV a] = return $ NumberV $ length a
 listIndexOf :: SFunction
 listIndexOf globals [ListV a, b] = return $ NumberV $ length (takeWhile (/= b) a)
 
+sUpdateName :: SFunction
+sUpdateName globals [ObjectV (Namespace foo), ListV [StringV str, a]] = return $ ObjectV (Namespace ((str, a):foo))
+
 strClass :: Namespace
 strClass = undefined
 
@@ -199,10 +202,10 @@ declare globals@(Namespace gs) (FuncDec str args body) = Namespace $ (str, FuncV
     makeLocals argVals = fmap (\a -> Namespace $ zip args a) (flipListIO argVals)
 
 declare globals@(Namespace gs) (ClassDec str decls) = Namespace $ (str, adaptToVal constructor):gs where
-    classObj = ObjectV $ foldl declare globals decls
+    classNames = foldl declare globals decls
     constructor :: SFunction
-    constructor globals' [] = return classObj
-
+    constructor globals' args | nameExists classNames "__init__" = callFunction globals' (unsafeSearch "__init__" classNames) ((map return) $ ObjectV classNames:args)
+        | otherwise = return $ ObjectV classNames
 declare globals@(Namespace gs) (VarDec str) = Namespace $ (str, Void):gs
 
 

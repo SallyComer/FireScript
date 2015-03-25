@@ -17,7 +17,7 @@ stdEnv = Namespace [
     ("!!", adaptToVal sIndex),
     ("index", adaptToVal sIndex),
     ("cons", adaptToVal sCons),
-    (":", adaptToVal sCons),
+    (":", adaptToVal sUpdateName),
     ("head", adaptToVal sHead),
     ("tail", adaptToVal sTail),
     ("init", adaptToVal sInit),
