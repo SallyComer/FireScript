@@ -2,10 +2,7 @@
 
 
 
-Class blah {
-    
-}
-
+Class blah {}
 
 Def main() {
     Var thing = blah();
