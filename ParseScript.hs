@@ -54,6 +54,7 @@ parseExpr (NameT a:rest) = parseOp $ Right (Name a, rest)
 parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
 parseExpr (LParen:rest) = parseOp $ case parseExpr rest of
     Right (thing, (RParen:rest')) -> Right (Parens thing, rest')
+    Right (thing, a) -> error ("Missing a closing parentheses:\n" ++ show a)
 parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
     a -> Left (show a)

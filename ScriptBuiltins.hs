@@ -39,7 +39,15 @@ stdEnv = Namespace [
     ("map", adaptToVal sMap),
     ("reduce", adaptToVal sReduce),
     ("appendFile", adaptToVal sAppendFile),
-    ("merge", adaptToVal sMerge)]
+    ("merge", adaptToVal sMerge),
+    ("nameExists", adaptToVal sNameExists),
+    ("safeGet", adaptToVal sSafeGet),
+    ("!=", adaptToVal sNotEquals),
+    ("&&", adaptToVal sAnd),
+    ("||", adaptToVal sOr),
+    ("not", adaptToVal sNot),
+    ("and", adaptToVal sAnd),
+    ("or", adaptToVal sOr)]
 
 
 
@@ -106,11 +114,24 @@ sInsert :: SFunction
 sInsert globals [ListV xs, NumberV i, val] = return $ ListV $ insert xs i val
 
 sBool :: SFunction
-sBool globals [a] = return $ if isTrue a then NumberV 1 else NumberV 0
+sBool globals [a] = return $ NumberV $ if isTrue a then 1 else 0
 
 
 sEquals :: SFunction
 sEquals globals [a, b] = return $ NumberV $ if (a == b) then 1 else 0
+
+sNotEquals :: SFunction
+sNotEquals globals [a, b] = return $ NumberV $ if (a == b) then 0 else 1
+
+sAnd :: SFunction
+sAnd globals [a, b] = return $ NumberV $ if (isTrue a && isTrue b) then 1 else 0
+
+sOr :: SFunction
+sOr globals [a, b] = return $ NumberV $ if (isTrue a || isTrue b) then 1 else 0
+
+sNot :: SFunction
+sNot globals [a] = return $ NumberV $ if (isTrue a) then 0 else 1
+
 
 instance Ord Value where
     compare (ListV a) (ListV b) = compare a b
@@ -176,3 +197,16 @@ sReduce globals [func, ListV xs] = foldl1 thing (map return xs) where
 
 sMerge :: SFunction
 sMerge globals [ObjectV (Namespace a), ObjectV (Namespace b)] = return $ ObjectV $ Namespace $ b ++ a
+
+sNameExists :: SFunction
+sNameExists globals [thing, StringV str] = return $ NumberV $ case nameExists (getVars thing) str of
+    True -> 1
+    False -> 0
+
+sSafeGet :: SFunction
+sSafeGet globals [thing, StringV str] = return $ case search str (getVars thing) of
+    Right val -> val
+    Left _ -> Void
+
+
+

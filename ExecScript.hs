@@ -69,7 +69,7 @@ nameExists scope str = case search str scope of
 
 unsafeSearch str scope = case search str scope of
     Right a -> a
-    Left a -> error (show scope)
+    Left a -> error ("Looked for name that is not in:\n"++ show scope)
 
 unEither (Right a) = a
 unEither (Left a) = error (show a)
@@ -112,10 +112,10 @@ sUpdateName :: SFunction
 sUpdateName globals [ObjectV (Namespace foo), ListV [StringV str, a]] = return $ ObjectV (Namespace ((str, a):foo))
 
 strClass :: Namespace
-strClass = undefined
+strClass = Namespace []
 
 numClass :: Namespace
-numClass = undefined
+numClass = Namespace []
 
 --createFunction :: Declaration -> [Value] -> Value
 --createFunction (FuncDec _ args body) = undefined
