@@ -16,7 +16,7 @@ main = do
             val <- runScript (head cmdArgs)
             print val
 
-runScript :: FilePath -> IO Value
+runScript :: FilePath -> IO ()
 runScript fname = do
     text <- readFile fname
-    runMain $ (importProgram stdEnv text)
+    (runMain $ (importProgram stdEnv text)) >> return ()

@@ -1,5 +1,8 @@
 module ExecScript where
 import ParseScript
+import Control.Concurrent
+import Control.Concurrent.MVar
+import Control.Monad (void)
 
 
 data Value = NumberV Int
@@ -137,6 +140,18 @@ exec :: Namespace -> Namespace -> Statement -> IO (Either Value Namespace)
 exec globals ls@(Namespace locals) (Assign str val) = fmap (\a -> Right $ Namespace $ (str, a):locals) (evaluate globals ls val)
 exec globals ls@(Namespace locals) (Do val) = fmap (\a -> Right $ Namespace $ ("_", a):locals) (evaluate globals ls val)
 exec globals ls@(Namespace locals) (Return thing) = fmap Left (evaluate globals ls thing)
+{-
+exec globals ls@(Namespace locals) (Spark val) = fmap (\a -> Right $ Namespace $ ("_", a):locals) result where
+    result :: IO Value
+    result = do
+        thing <- newEmptyMVar
+        forkIO (blah thing)
+        readMVar thing
+    blah var = do
+        val' <- evaluate globals ls val
+        putMVar var val'
+-}
+exec globals locals (Spark val) = (forkIO $ void (evaluate globals locals val)) >> return (Right locals)
 exec globals locals (Block stmts) = fmap (\a -> case a of
     Left thing -> Left thing
     Right blah -> Right $ updateNames locals blah) (execs globals locals stmts)
@@ -147,14 +162,7 @@ exec globals locals (While val stmt) = (evaluate globals locals val) >>= (\a -> 
     condTrue' = (exec globals locals stmt) >>= condTrue
     condFalse = return (Right locals)
 
-{-
-exec globals locals (If val stmt)
-    | isTrue (evaluate globals locals val) = case exec globals locals stmt of
-        Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))
-        Left thing -> Left thing
-    | otherwise = case locals of
-        (Namespace locals') -> Right (Namespace (("@", NumberV 0):locals'))
--}
+
 exec globals locals (If val stmt) = (evaluate globals locals val) >>= (\a -> if isTrue a then condTrue else condFalse) where
     condTrue = (exec globals locals stmt) >>= (\blah -> return $ case blah of
         Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))
@@ -162,13 +170,7 @@ exec globals locals (If val stmt) = (evaluate globals locals val) >>= (\a -> if 
     condFalse = return $ case locals of
         (Namespace locals') -> Right (Namespace (("@", NumberV 0):locals'))
 
-{-
-exec globals locals (Elif val stmt)
-    | (varEq "@" (NumberV 0) locals) && (isTrue (evaluate globals locals val)) = case exec globals locals stmt of
-        Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))
-        Left thing -> Left thing
-    | otherwise = Right locals
--}
+
 exec globals locals (Elif val stmt) = (evaluate globals locals val) >>= (\a -> if ((varEq "@" (NumberV 0) locals) && isTrue a) then condTrue else condFalse) where
     condTrue = (exec globals locals stmt) >>= (\blah -> return $ case blah of
         Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))

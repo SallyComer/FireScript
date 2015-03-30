@@ -12,7 +12,8 @@ data Statement = Assign String Expr
     | Elif Expr Statement
     | Declare String
     | DeclAssign String Expr
-    | Return Expr deriving (Show, Eq)
+    | Return Expr
+    | Spark Expr deriving (Show, Eq)
 
 
 
@@ -121,6 +122,9 @@ parseStatement (KeywordT "Var":NameT name:EqT:rest) = case parseExpr rest of
 parseStatement (KeywordT "Var":NameT name:rest) = Right (Declare name, rest)
 parseStatement (KeywordT "Return":rest) = case parseExpr rest of
     Right (val, rest') -> Right (Return val, rest')
+
+parseStatement (KeywordT "Spark":rest) = case parseExpr rest of
+    Right (val, rest') -> Right (Spark val, rest')
 parseStatement a = case parseExpr a of
     Right (Get obj field, EqT:rest) -> case parseExpr rest of
         Right (thing, rest') -> case fieldAssign (Get obj field, thing) of

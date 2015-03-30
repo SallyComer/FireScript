@@ -47,7 +47,8 @@ stdEnv = Namespace [
     ("||", adaptToVal sOr),
     ("not", adaptToVal sNot),
     ("and", adaptToVal sAnd),
-    ("or", adaptToVal sOr)]
+    ("or", adaptToVal sOr),
+    ("input", adaptToVal sInput)]
 
 
 
@@ -59,8 +60,12 @@ class Adaptable f where
 sPrint :: SFunction
 sPrint globals [StringV str] = putStrLn str >> return Void
 sPrint globals [ErrorV a] = return (ErrorV a)
+sPrint globals [ObjectV a] = putStrLn "really gotta work toString into print" >> return Void
 sPrint globals [a] = print a >> return Void
 sPrint globals a = return (ErrorV (show a))
+
+sInput :: SFunction
+sInput globals [] = fmap StringV getLine
 
 instance Adaptable (Int -> Int -> Int) where
     adapt f _ [NumberV a, NumberV b] = return (NumberV (f a b))
