@@ -10,7 +10,7 @@ Class _Tree {
     Def fmap(self, func) {
         If (isATree(self.left)) {
             self.left = self.left.fmap(func);
-        };
+        }
         Else {
             self.left = func(self.left);
         };

@@ -57,8 +57,8 @@ parseExpr (LParen:rest) = parseOp $ case parseExpr rest of
     Right (thing, a) -> error ("Missing a closing parentheses:\n" ++ show a)
 parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
-    a -> Left (show a)
-parseExpr a = Left (show a)
+    a -> Left ("stuff with brackets: " ++ show a)
+parseExpr a = Left ("some screwup with expressions: " ++ show a)
 
 parseOp (Right (a, (OperatorT ".":NameT field:LParen:rest))) = parseOp $ case parseCommaStuff rest of
     Right (args, (RParen:rest')) -> Right (Method a field args, rest')
@@ -77,7 +77,26 @@ parseSemicolons (RBrace:rest) = Right ([], rest)
 parseSemicolons a = case parseStatement a of
     Right (stmt, Semicolon:rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
-    a -> error (show a)
+
+    Right (stmt@(Block _), rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+
+    Right (stmt@(If _ _), rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+
+    Right (stmt@(While _ _), rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+
+    Right (stmt@(Elif _ _), rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+
+    Right (stmt@(Else _), rest) -> case parseSemicolons rest of
+        Right (stmts, rest') -> Right (stmt:stmts, rest')
+
+
+
+    Right (stuff, thing) -> error ("\n" ++ show stuff ++ "\n\n" ++ show thing)
+    a -> error ("THING WITH SEMICOLONS: " ++ show a)
 
 
 parseStatement :: Parser Statement
@@ -108,6 +127,7 @@ parseStatement a = case parseExpr a of
             Left blah -> Right (blah, rest')
             Right blah -> error ("got a weird thing from fieldAssign " ++ show blah)
     Right (val, rest) -> Right (Do val, rest)
+    a -> error ("parseStatement: " ++ show a)
    
 
 
