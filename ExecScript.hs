@@ -12,6 +12,7 @@ data Value = NumberV Int
     | Void
     | ErrorV String
     | ObjectV Namespace
+    | Ember (MVar Value)
 
 
 type FuncVT = Namespace -> [IO Value] -> IO Value
@@ -34,6 +35,7 @@ instance Show Value where
     show (ListV l) = show l
     show Void = "null"
     show (FuncV _) = "<function>"
+    show (Ember _) = "A burning hole in the world"
 
 data Namespace = Namespace [(String, Value)] deriving (Show)
 
@@ -78,6 +80,15 @@ unEither (Right a) = a
 unEither (Left a) = error (show a)
 
 evaluate :: Namespace -> Namespace -> Expr -> IO Value
+evaluate globals locals (Spark comp) = do
+    ember <- newEmptyMVar
+    forkIO ((evaluate globals locals comp) >>= (\a -> putMVar ember a))
+    return (Ember ember)
+evaluate globals locals (Take e) = (evaluate globals locals e) >>= (\a -> case a of
+    Ember e' -> takeMVar e')
+evaluate globals locals (Read e) = (evaluate globals locals e) >>= (\a -> case a of
+    Ember e' -> readMVar e')
+evaluate globals locals Ignite = fmap Ember newEmptyMVar
 evaluate globals locals (Number i) = return $ NumberV i
 evaluate globals locals (Str s) = return $ StringV s
 evaluate globals locals (Parens thing) = evaluate globals locals thing
@@ -140,18 +151,7 @@ exec :: Namespace -> Namespace -> Statement -> IO (Either Value Namespace)
 exec globals ls@(Namespace locals) (Assign str val) = fmap (\a -> Right $ Namespace $ (str, a):locals) (evaluate globals ls val)
 exec globals ls@(Namespace locals) (Do val) = fmap (\a -> Right $ Namespace $ ("_", a):locals) (evaluate globals ls val)
 exec globals ls@(Namespace locals) (Return thing) = fmap Left (evaluate globals ls thing)
-{-
-exec globals ls@(Namespace locals) (Spark val) = fmap (\a -> Right $ Namespace $ ("_", a):locals) result where
-    result :: IO Value
-    result = do
-        thing <- newEmptyMVar
-        forkIO (blah thing)
-        readMVar thing
-    blah var = do
-        val' <- evaluate globals ls val
-        putMVar var val'
--}
-exec globals locals (Spark val) = (forkIO $ void (evaluate globals locals val)) >> return (Right locals)
+
 exec globals locals (Block stmts) = fmap (\a -> case a of
     Left thing -> Left thing
     Right blah -> Right $ updateNames locals blah) (execs globals locals stmts)
@@ -186,6 +186,12 @@ exec globals locals (Else stmt)
 exec globals (Namespace locals) (Declare name) = return $ Right $ Namespace ((name, Void):locals)
 exec globals ls@(Namespace locals) (DeclAssign name val) = fmap (\a -> Right $ Namespace $ (name, a):locals) (evaluate globals ls val)
 
+exec globals locals (Put ember val) = do
+    val' <- evaluate globals locals val
+    ember' <- evaluate globals locals ember
+    case ember' of
+        Ember e' -> putMVar e' val'
+    return (Right locals)
 
 isTrue (NumberV 0) = False
 isTrue (StringV "") = False
@@ -229,7 +235,10 @@ loadScratchText text = case program text of
     Right (a, _) -> loadFromScratch a
 
 runMain :: Namespace -> IO Value
-runMain globals = evaluate globals (Namespace []) (Call "main" [])
+runMain globals = do
+    ret <- evaluate globals (Namespace []) (Call "main" [])
+    yield
+    return ret
 
 
 runText :: String -> IO Value

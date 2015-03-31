@@ -13,7 +13,7 @@ data Statement = Assign String Expr
     | Declare String
     | DeclAssign String Expr
     | Return Expr
-    | Spark Expr deriving (Show, Eq)
+    | Put Expr Expr deriving (Show, Eq)
 
 
 
@@ -25,7 +25,11 @@ data Expr = Number Int
     | List [Expr]
     | Name String 
     | Get Expr String
-    | Method Expr String [Expr] deriving (Show, Eq)
+    | Method Expr String [Expr]
+    | Take Expr
+    | Spark Expr
+    | Read Expr
+    | Ignite deriving (Show, Eq)
 
 
 data Declaration = FuncDec String [String] Statement
@@ -48,14 +52,21 @@ parseCommaStuff a = case parseExpr a of
     Left _ -> Right ([], a)
 
 parseExpr :: Parser Expr
+parseExpr (KeywordT "Ignite":rest) = parseOp $ Right (Ignite, rest)
+parseExpr (KeywordT "Spark":rest) = parseOp $ case parseExpr rest of
+    Right (thing, rest') -> Right (Spark thing, rest')
+parseExpr (KeywordT "Take":rest) = parseOp $ case parseExpr rest of
+    Right (thing, rest') -> Right (Take thing, rest')
+parseExpr (KeywordT "Read":rest) = parseOp $ case parseExpr rest of
+    Right (thing, rest') -> Right (Read thing, rest')
 parseExpr ((NameT name):LParen:rest) = parseOp $ case parseCommaStuff rest of
     Right (args, (RParen:rest')) -> Right (Call name args, rest')
 parseExpr (NumberT a:rest) = parseOp $ Right (Number a, rest)
 parseExpr (NameT a:rest) = parseOp $ Right (Name a, rest)
 parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
-parseExpr (LParen:rest) = parseOp $ case parseExpr rest of
+parseExpr (LParen:rest) = parseOp $ case (parseOp $ parseExpr rest) of
     Right (thing, (RParen:rest')) -> Right (Parens thing, rest')
-    Right (thing, a) -> error ("Missing a closing parentheses:\n" ++ show a)
+    Right (thing, a) -> error ("Missing a closing parentheses:\n" ++ show a ++ "\n\n" ++ show thing)
 parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
     a -> Left ("stuff with brackets: " ++ show a)
@@ -122,9 +133,10 @@ parseStatement (KeywordT "Var":NameT name:EqT:rest) = case parseExpr rest of
 parseStatement (KeywordT "Var":NameT name:rest) = Right (Declare name, rest)
 parseStatement (KeywordT "Return":rest) = case parseExpr rest of
     Right (val, rest') -> Right (Return val, rest')
+parseStatement (KeywordT "Put":rest) = case parseExpr rest of
+    Right (thing1, rest') -> case parseExpr rest' of
+        Right (thing2, rest'') -> Right (Put thing1 thing2, rest'')
 
-parseStatement (KeywordT "Spark":rest) = case parseExpr rest of
-    Right (val, rest') -> Right (Spark val, rest')
 parseStatement a = case parseExpr a of
     Right (Get obj field, EqT:rest) -> case parseExpr rest of
         Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
