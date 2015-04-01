@@ -13,6 +13,7 @@ data Value = NumberV Int
     | ErrorV String
     | ObjectV Namespace
     | Ember (MVar Value)
+    | Module Namespace
 
 
 type FuncVT = Namespace -> [IO Value] -> IO Value
@@ -80,6 +81,7 @@ unEither (Right a) = a
 unEither (Left a) = error (show a)
 
 evaluate :: Namespace -> Namespace -> Expr -> IO Value
+evaluate globals locals (MemberAccess thing mem) = fmap (getAttr mem) (evaluate globals locals thing)
 evaluate globals locals (Spark comp) = do
     ember <- newEmptyMVar
     forkIO ((evaluate globals locals comp) >>= (\a -> putMVar ember a))
@@ -93,7 +95,7 @@ evaluate globals locals (Number i) = return $ NumberV i
 evaluate globals locals (Str s) = return $ StringV s
 evaluate globals locals (Parens thing) = evaluate globals locals thing
 evaluate globals locals (Operator op thing1 thing2) = callOperator globals op (evaluate globals locals thing1) (evaluate globals locals thing2)
-evaluate globals locals (Call func stuff) = (evaluate globals locals (Name func)) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
+evaluate globals locals (Call func stuff) = (evaluate globals locals func) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
 evaluate globals locals (List stuff) = (fmap ListV) (flipListIO $ map (evaluate globals locals) stuff)
 evaluate globals locals (Name blah) = return $ unEither $ fallbackSearch blah locals globals
 evaluate globals locals (Get thing str) = fmap (getAttr str) (evaluate globals locals thing)
@@ -109,6 +111,7 @@ getVars (ObjectV o) = o
 getVars (ListV _) = listClass
 getVars (StringV _) = strClass
 getVars (NumberV _) = numClass
+getVars (Module m) = m
 
 listClass :: Namespace
 listClass = Namespace [
@@ -218,6 +221,7 @@ declare globals@(Namespace gs) (ClassDec str decls) = Namespace $ (str, adaptToV
     constructor globals' args | nameExists classNames "__init__" = callFunction globals' (unsafeSearch "__init__" classNames) ((map return) $ ObjectV classNames:args)
         | otherwise = return $ ObjectV classNames
 declare globals@(Namespace gs) (VarDec str) = Namespace $ (str, Void):gs
+declare globals@(Namespace gs) (ModDec name decls) = Namespace $ (name, Module (foldl declare globals decls)):gs
 
 
 flipListIO :: [IO a] -> IO [a]
@@ -225,7 +229,7 @@ flipListIO [] = return []
 flipListIO (x:xs) = x >>= (\a -> fmap (a:) (flipListIO xs)) 
 
 load :: Namespace -> Program -> Namespace
-load globals (Program decls) = foldl declare globals decls
+load globals (Program imports decls) = foldl declare globals decls
 
 loadFromScratch :: Program -> Namespace
 loadFromScratch prog = load (Namespace []) prog
@@ -236,7 +240,7 @@ loadScratchText text = case program text of
 
 runMain :: Namespace -> IO Value
 runMain globals = do
-    ret <- evaluate globals (Namespace []) (Call "main" [])
+    ret <- evaluate globals (Namespace []) (Call (Name "main") [])
     yield
     return ret
 

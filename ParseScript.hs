@@ -21,7 +21,7 @@ data Expr = Number Int
     | Str String
     | Parens Expr
     | Operator String Expr Expr
-    | Call String [Expr]
+    | Call Expr [Expr]
     | List [Expr]
     | Name String 
     | Get Expr String
@@ -29,16 +29,18 @@ data Expr = Number Int
     | Take Expr
     | Spark Expr
     | Read Expr
-    | Ignite deriving (Show, Eq)
+    | Ignite
+    | MemberAccess Expr String deriving (Show, Eq)
 
 
 data Declaration = FuncDec String [String] Statement
     | ClassDec String [Declaration] 
-    | VarDec String deriving (Show)
+    | VarDec String
+    | ModDec String Program deriving (Show)
 
 
 
-data Program = Program [Declaration] deriving (Show)
+data Program = Program [String] [Declaration] deriving (Show)
 
 
 type Parser a = [Token] -> Either String (a, [Token])
@@ -52,6 +54,14 @@ parseCommaStuff a = case parseExpr a of
     Left _ -> Right ([], a)
 
 parseExpr :: Parser Expr
+parseExpr stuff@(NameT name_:OperatorT "::":rest_) = parseOp $ Right $ (\(a, b) -> (b, a)) (fmap makeMemberAccess (extentOfColon stuff)) where
+    extentOfColon :: [Token] -> ([Token], [String])
+    extentOfColon (NameT name:OperatorT "::":rest) = case extentOfColon rest of
+        (rest', things) -> (rest', name:things)
+    extentOfColon (NameT name:rest) = (rest, [name])
+    makeMemberAccess :: [String] -> Expr
+    makeMemberAccess [foo] = Name foo
+    makeMemberAccess foo = MemberAccess (makeMemberAccess (init foo)) (last foo)
 parseExpr (KeywordT "Ignite":rest) = parseOp $ Right (Ignite, rest)
 parseExpr (KeywordT "Spark":rest) = parseOp $ case parseExpr rest of
     Right (thing, rest') -> Right (Spark thing, rest')
@@ -60,7 +70,7 @@ parseExpr (KeywordT "Take":rest) = parseOp $ case parseExpr rest of
 parseExpr (KeywordT "Read":rest) = parseOp $ case parseExpr rest of
     Right (thing, rest') -> Right (Read thing, rest')
 parseExpr ((NameT name):LParen:rest) = parseOp $ case parseCommaStuff rest of
-    Right (args, (RParen:rest')) -> Right (Call name args, rest')
+    Right (args, (RParen:rest')) -> Right (Call (Name name) args, rest')
 parseExpr (NumberT a:rest) = parseOp $ Right (Number a, rest)
 parseExpr (NameT a:rest) = parseOp $ Right (Name a, rest)
 parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
@@ -81,6 +91,8 @@ parseOp (Right (a, (OperatorT ".":NameT field:rest))) = parseOp $ Right (Get a f
 
 parseOp (Right (arg1, (OperatorT op:rest))) = case parseExpr rest of
     Right (arg2, rest') -> Right (Operator op arg1 arg2, rest')
+parseOp (Right (func, (LParen:rest))) = case parseCommaStuff rest of
+    Right (args, RParen:rest') -> Right (Call func args, rest')
 parseOp a = a
 
 
@@ -165,6 +177,8 @@ parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest 
 parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
     Right (decls, rest') -> Right (ClassDec name decls, rest')
 parseDecl (KeywordT "Var":NameT name:rest) = Right (VarDec name, rest)
+parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of
+    Right (prgm, rest') -> Right (ModDec modName prgm, rest')
 parseDecl a = error (show a)
 
 parseDecls :: Parser [Declaration]
@@ -174,10 +188,11 @@ parseDecls blah = case parseDecl blah of
         Right (decls, rest') -> Right (decl:decls, rest')
 
 parseProgram :: Parser Program
-parseProgram [] = Right (Program [], [])
-parseProgram a = case parseDecl a of
-    Right (def, rest) -> case parseProgram rest of
-        Right (Program defs, rest') -> Right (Program (def:defs), rest')
+parseProgram [] = Right (Program [] [], [])
+parseProgram (KeywordT "Import":NameT name:rest) = case parseProgram rest of
+    Right (Program imports decls, rest') -> Right (Program (name:imports) decls, rest')
+parseProgram a = case parseDecls a of
+    Right (decls, rest) -> Right (Program [] decls, rest)
 
 expression = parseExpr . tokenize
 statement = parseStatement . tokenize
