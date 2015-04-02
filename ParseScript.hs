@@ -35,7 +35,7 @@ data Expr = Number Int
 
 data Declaration = FuncDec String [String] Statement
     | ClassDec String [Declaration] 
-    | VarDec String
+    | VarDec String Expr
     | ModDec String Program deriving (Show)
 
 
@@ -175,21 +175,23 @@ parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest 
     Right (args, rest') -> case parseStatement rest' of
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
 parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
-    Right (decls, rest') -> Right (ClassDec name decls, rest')
-parseDecl (KeywordT "Var":NameT name:rest) = Right (VarDec name, rest)
+    Right (decls, RBrace:rest') -> Right (ClassDec name decls, rest')
+parseDecl (KeywordT "Var":NameT name:rest) = case parseExpr rest of
+    Right (val, rest') -> Right (VarDec name val, rest')
 parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of
-    Right (prgm, rest') -> Right (ModDec modName prgm, rest')
-parseDecl a = error (show a)
+    Right (prgm, RBrace:rest') -> Right (ModDec modName prgm, rest')
+parseDecl a = error ("parseDecl screwed up:\n" ++ show a)
 
 parseDecls :: Parser [Declaration]
-parseDecls (RBrace:rest) = Right ([], rest)
+parseDecls [] = Right ([], [])
+parseDecls (RBrace:rest) = Right ([], RBrace:rest)
 parseDecls blah = case parseDecl blah of
     Right (decl, rest) -> case parseDecls rest of
         Right (decls, rest') -> Right (decl:decls, rest')
 
 parseProgram :: Parser Program
 parseProgram [] = Right (Program [] [], [])
-parseProgram (KeywordT "Import":NameT name:rest) = case parseProgram rest of
+parseProgram (KeywordT "Import":StrT name:rest) = case parseProgram rest of
     Right (Program imports decls, rest') -> Right (Program (name:imports) decls, rest')
 parseProgram a = case parseDecls a of
     Right (decls, rest) -> Right (Program [] decls, rest)

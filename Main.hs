@@ -19,4 +19,4 @@ main = do
 runScript :: FilePath -> IO ()
 runScript fname = do
     text <- readFile fname
-    (runMain $ (importProgram stdEnv text)) >> return ()
+    ((importProgram stdEnv text) >>= runMain) >> return ()

@@ -1,8 +1,9 @@
 module ExecScript where
 import ParseScript
+import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.MVar
-import Control.Monad (void)
+import Control.Monad (void, foldM)
 
 
 data Value = NumberV Int
@@ -12,7 +13,7 @@ data Value = NumberV Int
     | Void
     | ErrorV String
     | ObjectV Namespace
-    | Ember (MVar Value)
+    | Ember (MVar Value, ThreadId)
     | Module Namespace
 
 
@@ -84,13 +85,13 @@ evaluate :: Namespace -> Namespace -> Expr -> IO Value
 evaluate globals locals (MemberAccess thing mem) = fmap (getAttr mem) (evaluate globals locals thing)
 evaluate globals locals (Spark comp) = do
     ember <- newEmptyMVar
-    forkIO ((evaluate globals locals comp) >>= (\a -> putMVar ember a))
-    return (Ember ember)
+    tId <- forkIO ((evaluate globals locals comp) >>= (\a -> putMVar ember a))
+    return (Ember (ember, tId))
 evaluate globals locals (Take e) = (evaluate globals locals e) >>= (\a -> case a of
-    Ember e' -> takeMVar e')
+    Ember (e', _) -> takeMVar e')
 evaluate globals locals (Read e) = (evaluate globals locals e) >>= (\a -> case a of
-    Ember e' -> readMVar e')
-evaluate globals locals Ignite = fmap Ember newEmptyMVar
+    Ember (e', _) -> readMVar e')
+evaluate globals locals Ignite = fmap Ember ((,) <$> newEmptyMVar <*> myThreadId)
 evaluate globals locals (Number i) = return $ NumberV i
 evaluate globals locals (Str s) = return $ StringV s
 evaluate globals locals (Parens thing) = evaluate globals locals thing
@@ -193,7 +194,7 @@ exec globals locals (Put ember val) = do
     val' <- evaluate globals locals val
     ember' <- evaluate globals locals ember
     case ember' of
-        Ember e' -> putMVar e' val'
+        Ember (e', _) -> putMVar e' val'
     return (Right locals)
 
 isTrue (NumberV 0) = False
@@ -206,8 +207,8 @@ execs globals locals (stmt:stmts) = (exec globals locals stmt) >>= (\a -> case a
     Left thing -> return $ Left thing) 
 execs globals locals [] = return $ Right locals
 
-declare :: Namespace -> Declaration -> Namespace
-declare globals@(Namespace gs) (FuncDec str args body) = Namespace $ (str, FuncV function):gs where
+declare :: Namespace -> Declaration -> IO Namespace
+declare globals@(Namespace gs) (FuncDec str args body) = return $ Namespace $ (str, FuncV function):gs where
     function :: FuncVT
     function globals' argVals = fmap (\a -> case a of
         Right _ -> Void
@@ -215,25 +216,33 @@ declare globals@(Namespace gs) (FuncDec str args body) = Namespace $ (str, FuncV
     makeLocals :: [IO Value] -> IO Namespace
     makeLocals argVals = fmap (\a -> Namespace $ zip args a) (flipListIO argVals)
 
-declare globals@(Namespace gs) (ClassDec str decls) = Namespace $ (str, adaptToVal constructor):gs where
-    classNames = foldl declare globals decls
-    constructor :: SFunction
-    constructor globals' args | nameExists classNames "__init__" = callFunction globals' (unsafeSearch "__init__" classNames) ((map return) $ ObjectV classNames:args)
-        | otherwise = return $ ObjectV classNames
-declare globals@(Namespace gs) (VarDec str) = Namespace $ (str, Void):gs
-declare globals@(Namespace gs) (ModDec name decls) = Namespace $ (name, Module (foldl declare globals decls)):gs
+declare globals@(Namespace gs) (ClassDec str decls) = (\cn -> Namespace $ (str, adaptToVal $ constructor' cn):gs) <$> classNames where
+    classNames = foldM declare globals decls
+    constructor' :: Namespace -> SFunction
+    constructor' classNames' globals' args | nameExists classNames' "__init__" = callFunction globals' (unsafeSearch "__init__" classNames') ((map return) $ ObjectV classNames':args)
+        | otherwise = return $ ObjectV classNames'
+    
+declare globals@(Namespace gs) (VarDec str expr) = (\v -> Namespace $ (str, v):gs) <$> (evaluate globals (Namespace []) expr)
+declare globals@(Namespace gs) (ModDec name body) = (\m -> Namespace $ (name, Module m):gs) <$> (load globals body)
 
 
 flipListIO :: [IO a] -> IO [a]
 flipListIO [] = return []
 flipListIO (x:xs) = x >>= (\a -> fmap (a:) (flipListIO xs)) 
 
-load :: Namespace -> Program -> Namespace
-load globals (Program imports decls) = foldl declare globals decls
+load :: Namespace -> Program -> IO Namespace
+load globals (Program imports decls) = do
+    globals' <- foldM obtainProgram globals imports
+    foldM declare globals' decls
 
-loadFromScratch :: Program -> Namespace
+loadFromScratch :: Program -> IO Namespace
 loadFromScratch prog = load (Namespace []) prog
 
+
+obtainProgram :: Namespace -> FilePath -> IO Namespace
+obtainProgram globals fname = do
+    text <- readFile fname
+    importProgram globals text
 
 loadScratchText text = case program text of
     Right (a, _) -> loadFromScratch a
@@ -246,9 +255,9 @@ runMain globals = do
 
 
 runText :: String -> IO Value
-runText text = runMain $ loadScratchText text
+runText text = (loadScratchText text) >>= runMain
 
-importProgram :: Namespace -> String -> Namespace
+importProgram :: Namespace -> String -> IO Namespace
 importProgram globals text = case program text of
     Right (a, _) -> load globals a
 
