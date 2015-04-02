@@ -142,8 +142,7 @@ strClass = Namespace []
 numClass :: Namespace
 numClass = Namespace []
 
---createFunction :: Declaration -> [Value] -> Value
---createFunction (FuncDec _ args body) = undefined
+
 
 callOperator :: Namespace -> String -> IO Value -> IO Value -> IO Value
 callOperator globals name arg1 arg2 = callFunction globals (unsafeSearch name globals) [arg1, arg2]
@@ -203,6 +202,18 @@ exec globals locals (Put ember val) = do
     case ember' of
         Ember (e', _) -> putMVar e' val'
     return (Right locals)
+
+exec globals locals (Shove ember v) = do
+    (Ember (e, _)) <- evaluate globals locals ember
+    val <- evaluate globals locals v
+    tryPutMVar e val
+    swapMVar e val
+    return (Right locals)
+exec globals locals (Kill ember) = do
+    (Ember (_, tId)) <- evaluate globals locals ember
+    killThread tId
+    return (Right locals)
+    
 
 isTrue (NumberV 0) = False
 isTrue (StringV "") = False

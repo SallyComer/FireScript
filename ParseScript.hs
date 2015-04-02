@@ -13,7 +13,9 @@ data Statement = Assign String Expr
     | Declare String
     | DeclAssign String Expr
     | Return Expr
-    | Put Expr Expr deriving (Show, Eq)
+    | Put Expr Expr
+    | Shove Expr Expr
+    | Kill Expr deriving (Show, Eq)
 
 
 
@@ -152,6 +154,11 @@ parseStatement (KeywordT "Return":rest) = case parseExpr rest of
 parseStatement (KeywordT "Put":rest) = case parseExpr rest of
     Right (thing1, rest') -> case parseExpr rest' of
         Right (thing2, rest'') -> Right (Put thing1 thing2, rest'')
+parseStatement (KeywordT "Shove":rest) = case parseExpr rest of
+    Right (thing1, rest') -> case parseExpr rest' of
+        Right (thing2, rest'') -> Right (Shove thing1 thing2, rest'')
+parseStatement (KeywordT "Kill":rest) = case parseExpr rest of
+    Right (thing, rest') -> Right (Kill thing, rest')
 
 parseStatement a = case parseExpr a of
     Right (Get obj field, EqT:rest) -> case parseExpr rest of
