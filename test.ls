@@ -1,15 +1,14 @@
 
 
-Module foo {
-    Def bar(baz) {
-        print(baz);
-        Return null;
-    }
-}
+
 
 
 
 Def main() {
-    foo::bar(2);
-    Return null;
+    Var func = (Lambda (a, b, c) {
+        print(a);
+        print(b);
+        print(c);
+    });
+    func(1, 2, 3);
 }

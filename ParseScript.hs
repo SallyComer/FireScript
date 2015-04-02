@@ -30,7 +30,8 @@ data Expr = Number Int
     | Spark Expr
     | Read Expr
     | Ignite
-    | MemberAccess Expr String deriving (Show, Eq)
+    | MemberAccess Expr String
+    | Lambda [String] Statement deriving (Show, Eq)
 
 
 data Declaration = FuncDec String [String] Statement
@@ -62,6 +63,9 @@ parseExpr stuff@(NameT name_:OperatorT "::":rest_) = parseOp $ Right $ (\(a, b) 
     makeMemberAccess :: [String] -> Expr
     makeMemberAccess [foo] = Name foo
     makeMemberAccess foo = MemberAccess (makeMemberAccess (init foo)) (last foo)
+parseExpr (KeywordT "Lambda":LParen:rest) = case parseFuncDeclArgs rest of
+    Right (args, rest') -> case parseStatement rest' of
+        Right (body, rest'') -> Right (Lambda args body, rest'')
 parseExpr (KeywordT "Ignite":rest) = parseOp $ Right (Ignite, rest)
 parseExpr (KeywordT "Spark":rest) = parseOp $ case parseExpr rest of
     Right (thing, rest') -> Right (Spark thing, rest')

@@ -102,6 +102,13 @@ evaluate globals locals (Name blah) = return $ unEither $ fallbackSearch blah lo
 evaluate globals locals (Get thing str) = fmap (getAttr str) (evaluate globals locals thing)
 evaluate globals locals (Method thing name args) = (evaluate globals locals thing) >>= (\a ->
     callMethod globals a (getAttr name a) (map (evaluate globals locals) args))
+evaluate globals locals@(Namespace ls) (Lambda args body) = return $ FuncV $ function where
+    function :: FuncVT
+    function globals' argVals = fmap (\a -> case a of
+        Right _ -> Void
+        Left val -> val) ((makeLocals argVals) >>= (\b -> exec globals' b body))
+    makeLocals :: [IO Value] -> IO Namespace
+    makeLocals argVals = fmap (\a -> Namespace $ (zip args a) ++ ls) (flipListIO argVals)
 
 
 getAttr :: String -> Value -> Value
