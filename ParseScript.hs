@@ -166,7 +166,7 @@ parseSemicolons a = case parseStatement a of
 
 
 
-    Right (stuff, thing) -> error ("\n" ++ show stuff ++ "\n\n" ++ show thing)
+    Right (stuff, thing) -> error ("parseSemicolons:\n" ++ show stuff ++ "\n\n" ++ show thing)
     a -> error ("THING WITH SEMICOLONS: " ++ show a)
 
 
@@ -238,6 +238,7 @@ parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest 
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
 parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
     Right (decls, RBrace:rest') -> Right (ClassDec name decls, rest')
+    Right _ -> error ("The class declaration of '" ++ name ++ "' needs a closing brace")
 parseDecl (KeywordT "Var":NameT name:rest) = case parseExpr rest of
     Right (val, rest') -> Right (VarDec name val, rest')
 parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of

@@ -79,8 +79,7 @@ unsafeSearch str scope = case search str scope of
     Right a -> a
     Left a -> error ("Looked for name that is not in:\n"++ show scope)
 
-unEither (Right a) = a
-unEither (Left a) = error (show a)
+
 
 evaluate :: Namespace -> Namespace -> Expr -> IO Value
 evaluate globals locals (MemberAccess thing mem) = fmap (getAttr mem) (evaluate globals locals thing)
@@ -99,7 +98,11 @@ evaluate globals locals (Parens thing) = evaluate globals locals thing
 evaluate globals locals (Operator op thing1 thing2) = callOperator globals op (evaluate globals locals thing1) (evaluate globals locals thing2)
 evaluate globals locals (Call func stuff) = (evaluate globals locals func) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
 evaluate globals locals (List stuff) = (fmap ListV) (flipListIO $ map (evaluate globals locals) stuff)
-evaluate globals locals (Name blah) = return $ unEither $ fallbackSearch blah locals globals
+evaluate globals locals (Name blah) = return $ case search blah locals of
+    Right val -> val
+    Left _ -> case search blah globals of
+        Right val -> val
+        Left _ -> error ("'" ++ blah ++ "' is not in scope! -- evaluate name")
 evaluate globals locals (Get thing str) = fmap (getAttr str) (evaluate globals locals thing)
 evaluate globals locals (Method thing name args) = (evaluate globals locals thing) >>= (\a ->
     callMethod globals a (getAttr name a) (map (evaluate globals locals) args))
