@@ -1,52 +1,80 @@
 module ParseScript where
 
 import ScanScript
-
-
-data Statement = Assign String Expr
-    | Do Expr
-    | Block [Statement]
-    | While Expr Statement
-    | If Expr Statement
-    | Else Statement
-    | Elif Expr Statement
-    | Declare String
-    | DeclAssign String Expr
-    | Return Expr
-    | Put Expr Expr
-    | Shove Expr Expr
-    | Kill Expr deriving (Show, Eq)
+import ASTData
 
 
 
-data Expr = Number Int
-    | Str String
-    | Parens Expr
-    | Operator String Expr Expr
-    | Call Expr [Expr]
-    | List [Expr]
-    | Name String 
-    | Get Expr String
-    | Method Expr String [Expr]
-    | Take Expr
-    | Spark Expr
-    | Read Expr
-    | Ignite
-    | MemberAccess Expr String
-    | Lambda [String] Statement deriving (Show, Eq)
-
-
-data Declaration = FuncDec String [String] Statement
-    | ClassDec String [Declaration] 
-    | VarDec String Expr
-    | ModDec String Program deriving (Show)
 
 
 
-data Program = Program [String] [Declaration] deriving (Show)
 
 
-type Parser a = [Token] -> Either String (a, [Token])
+data ParserChoice = StringContents
+    | MakeName
+    | MakeValue
+    | MakeStatement
+    | InParentheses
+    | ParenArgs
+    | SpecificKeyword String
+    | SpecificOperator String
+
+data ParserTemplate f = Template String [ParserChoice] ([UserMade] -> f)
+
+matchTemplate :: ParserChoice -> Parser UserMade
+matchTemplate StringContents (StrT str:rest) = Right (UserString str, rest)
+matchTemplate MakeName (NameT name:rest) = Right (UserIdentifier name, rest)
+matchTemplate InParentheses (LParen:rest) = case parseExpr rest of
+    Right (val, RParen:rest') -> Right (UserValue val, rest')
+    Right _ -> Left "missing close parenthesis"
+    Left a -> Left a
+matchTemplate key@(SpecificKeyword thing) (word:rest) | word == (KeywordT thing) = Right (UserKeyword thing, rest)
+    | otherwise = Left ("expecting '" ++ thing ++ "', found '" ++ show word ++ "'")
+
+matchTemplate sym@(SpecificOperator thing) (bol:rest) | bol == (OperatorT thing) = Right (UserSymbol thing, rest)
+    | otherwise = Left ("expecting '" ++ thing ++ "', found '" ++ show bol ++ "'")
+
+matchTemplate ParenArgs (LParen:rest) = case parseCommaStuff rest of
+    Right (exprs, RParen:rest') -> Right (UserArgs exprs, rest')
+    Right _ -> Left "missing close parenthesis"
+    Left a -> Left a
+
+matchTemplate MakeValue tokens = case parseExpr tokens of
+    Right (val, rest) -> Right (UserValue val, rest)
+    Left a -> Left a
+
+matchTemplate MakeStatement tokens = case parseStatement tokens of
+    Right (stmt, rest) -> Right (UserCommand stmt, rest)
+    Left a -> Left a
+
+
+
+accomplishTemplate :: ParserTemplate f -> Parser f
+accomplishTemplate (Template key blueprint reifier) (KeywordT foo:rest) | key == foo = case parseByTemplate blueprint rest of
+    Right (result, rest') -> Right (reifier result, rest')
+    Left a -> Left a
+
+parseByTemplate :: [ParserChoice] -> Parser [UserMade]
+parseByTemplate stuff = catParsers (map matchTemplate stuff)
+
+
+catParsers :: [Parser UserMade] -> Parser [UserMade]
+catParsers (p:qs) tokens@(_:_) = case p tokens of
+    Right (val, rest) -> case catParsers qs rest of
+        Right (vals, rest') -> Right (val:vals, rest')
+        Left a -> Left a
+    Left a -> Left a
+catParsers [] rest = Right ([], rest)
+catParsers (_:_) [] = Left "ran out of tokens!"
+
+
+tryTemplates :: [ParserTemplate f] -> Parser f
+tryTemplates (p:qs) tokens = case accomplishTemplate p tokens of
+    Right (thing, rest) -> Right (thing, rest)
+    Left _ -> tryTemplates qs tokens
+tryTemplates [] tokens = Left "even the user-made templates failed"
+
+
 
 
 parseCommaStuff :: Parser [Expr]

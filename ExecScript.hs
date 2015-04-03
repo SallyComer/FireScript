@@ -1,5 +1,6 @@
 module ExecScript where
 import ParseScript
+import ASTData
 import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.MVar
