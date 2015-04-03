@@ -214,6 +214,10 @@ exec globals locals (Kill ember) = do
     (Ember (_, tId)) <- evaluate globals locals ember
     killThread tId
     return (Right locals)
+
+exec globals locals (Command "Suspend" [UserValue thing]) = (evaluate globals locals thing) >>= (\a -> case a of
+    NumberV i -> (threadDelay i) >> return (Right locals)
+    notANumber -> error (show notANumber ++ " is not a number usable for a thread delay"))
     
 
 isTrue (NumberV 0) = False

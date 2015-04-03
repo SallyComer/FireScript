@@ -77,6 +77,18 @@ tryTemplates [] tokens = Left "even the user-made templates failed"
 
 
 
+
+-- Section for parser templates
+
+
+
+
+
+-- End parser templates
+
+
+
+
 parseCommaStuff :: Parser [Expr]
 parseCommaStuff a = case parseExpr a of
     Right (thing, (Comma:rest)) -> case parseCommaStuff rest of
@@ -188,13 +200,23 @@ parseStatement (KeywordT "Shove":rest) = case parseExpr rest of
 parseStatement (KeywordT "Kill":rest) = case parseExpr rest of
     Right (thing, rest') -> Right (Kill thing, rest')
 
-parseStatement a = case parseExpr a of
-    Right (Get obj field, EqT:rest) -> case parseExpr rest of
-        Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
-            Left blah -> Right (blah, rest')
-            Right blah -> error ("got a weird thing from fieldAssign " ++ show blah)
-    Right (val, rest) -> Right (Do val, rest)
-    a -> error ("parseStatement: " ++ show a)
+parseStatement a = case tryTemplates statementTemplates a of
+    Right thing -> Right thing
+    Left _ -> case parseExpr a of
+        Right (Get obj field, EqT:rest) -> case parseExpr rest of
+            Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
+                Left blah -> Right (blah, rest')
+                Right blah -> error ("got a weird thing from fieldAssign " ++ show blah)
+        Right (val, rest) -> Right (Do val, rest)
+        a -> error ("parseStatement: " ++ show a)
+
+
+
+statementTemplates :: [ParserTemplate Statement]
+
+statementTemplates = [
+    Template "Suspend" [MakeValue] (Command "Suspend")
+    ]
    
 
 
