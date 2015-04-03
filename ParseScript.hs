@@ -53,6 +53,7 @@ accomplishTemplate :: ParserTemplate f -> Parser f
 accomplishTemplate (Template key blueprint reifier) (KeywordT foo:rest) | key == foo = case parseByTemplate blueprint rest of
     Right (result, rest') -> Right (reifier result, rest')
     Left a -> Left a
+accomplishTemplate _ _ = Left "ain't a template form"
 
 parseByTemplate :: [ParserChoice] -> Parser [UserMade]
 parseByTemplate stuff = catParsers (map matchTemplate stuff)
@@ -241,6 +242,8 @@ parseDecl (KeywordT "Var":NameT name:rest) = case parseExpr rest of
     Right (val, rest') -> Right (VarDec name val, rest')
 parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of
     Right (prgm, RBrace:rest') -> Right (ModDec modName prgm, rest')
+parseDecl (KeywordT "Operator":NameT arg1:OperatorT op:NameT arg2:rest) = case parseStatement rest of
+    Right (body, rest') -> Right (FuncDec op [arg1, arg2] body, rest')
 parseDecl a = error ("parseDecl screwed up:\n" ++ show a)
 
 parseDecls :: Parser [Declaration]
