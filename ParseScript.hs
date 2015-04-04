@@ -91,11 +91,13 @@ tryTemplates [] tokens = Left "even the user-made templates failed"
 
 
 parseCommaStuff :: Parser [Expr]
+parseCommaStuff (RParen:rest) = Right ([], RParen:rest)
+parseCommaStuff (RBracket:rest) = Right ([], RBracket:rest)
 parseCommaStuff a = case parseExpr a of
     Right (thing, (Comma:rest)) -> case parseCommaStuff rest of
         Right (things, rest') -> Right (thing:things, rest')
     Right (thing, rest) -> Right ([thing], rest)
-    Left _ -> Right ([], a)
+    Left thing -> Left thing
 
 parseExpr :: Parser Expr
 parseExpr stuff@(NameT name_:OperatorT "::":rest_) = parseOp $ Right $ (\(a, b) -> (b, a)) (fmap makeMemberAccess (extentOfColon stuff)) where
@@ -106,24 +108,40 @@ parseExpr stuff@(NameT name_:OperatorT "::":rest_) = parseOp $ Right $ (\(a, b) 
     makeMemberAccess :: [String] -> Expr
     makeMemberAccess [foo] = Name foo
     makeMemberAccess foo = MemberAccess (makeMemberAccess (init foo)) (last foo)
-parseExpr (KeywordT "Lambda":LParen:rest) = case parseFuncDeclArgs rest of
-    Right (args, rest') -> case parseStatement rest' of
-        Right (body, rest'') -> Right (Lambda args body, rest'')
+
+parseExpr (KeywordT "Lambda":LParen:rest) = do
+    (args, rest') <- parseFuncDeclArgs rest
+    (body, rest'') <- parseStatement rest'
+    return (Lambda args body, rest'')
+
 parseExpr (KeywordT "Ignite":rest) = parseOp $ Right (Ignite, rest)
-parseExpr (KeywordT "Spark":rest) = parseOp $ case parseExpr rest of
-    Right (thing, rest') -> Right (Spark thing, rest')
-parseExpr (KeywordT "Take":rest) = parseOp $ case parseExpr rest of
-    Right (thing, rest') -> Right (Take thing, rest')
-parseExpr (KeywordT "Read":rest) = parseOp $ case parseExpr rest of
-    Right (thing, rest') -> Right (Read thing, rest')
+
+parseExpr (KeywordT "Spark":rest) = parseOp $ do
+    (thing, rest') <- parseExpr rest
+    return (Spark thing, rest')
+
+parseExpr (KeywordT "Take":rest) = parseOp $ do
+    (thing, rest') <- parseExpr rest
+    return (Take thing, rest')
+
+parseExpr (KeywordT "Read":rest) = parseOp $ do
+    (thing, rest') <- parseExpr rest
+    return (Read thing, rest')
+
+
 parseExpr ((NameT name):LParen:rest) = parseOp $ case parseCommaStuff rest of
     Right (args, (RParen:rest')) -> Right (Call (Name name) args, rest')
+    Right (args, rest') -> Left $ "You've got some missing close parens in the DECL of " ++ name
+    Left a -> Left a
+
 parseExpr (NumberT a:rest) = parseOp $ Right (Number a, rest)
 parseExpr (NameT a:rest) = parseOp $ Right (Name a, rest)
 parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
+
 parseExpr (LParen:rest) = parseOp $ case (parseOp $ parseExpr rest) of
     Right (thing, (RParen:rest')) -> Right (Parens thing, rest')
-    Right (thing, a) -> error ("Missing a closing parentheses:\n" ++ show a ++ "\n\n" ++ show thing)
+    Right (thing, a) -> Left ("%%%%%\nMissing a closing parentheses:\n  " ++ show thing ++ show a ++ "\n%%%%%\n")
+    Left a -> Left a
 parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
     a -> Left ("stuff with brackets: " ++ show a)
@@ -146,10 +164,10 @@ parseOp a = a
 parseSemicolons :: Parser [Statement]
 parseSemicolons (RBrace:rest) = Right ([], rest)
 parseSemicolons a = case parseStatement a of
-    Right (stmt, Semicolon:rest) -> case parseSemicolons rest of
+    Right (stmt, rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
 
-    Right (stmt@(Block _), rest) -> case parseSemicolons rest of
+{-    Right (stmt@(Block _), rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
 
     Right (stmt@(If _ _), rest) -> case parseSemicolons rest of
@@ -162,54 +180,77 @@ parseSemicolons a = case parseStatement a of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
 
     Right (stmt@(Else _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')
+        Right (stmts, rest') -> Right (stmt:stmts, rest')-}
 
-
-
-    Right (stuff, thing) -> error ("parseSemicolons:\n" ++ show stuff ++ "\n\n" ++ show thing)
-    a -> error ("THING WITH SEMICOLONS: " ++ show a)
+    a -> Left ("THING WITH SEMICOLONS: " ++ show a)
 
 
 parseStatement :: Parser Statement
-parseStatement ((NameT name):EqT:(OperatorT op):rest) = parseStatement ((NameT name):EqT:(NameT name):(OperatorT op):rest)
-parseStatement ((NameT name):EqT:rest) = case parseExpr rest of
-    Right (thing, rest') -> Right (Assign name thing, rest')
-parseStatement (LBrace:rest) = case parseSemicolons rest of
-    Right (stmts, rest') -> Right (Block stmts, rest')
-parseStatement (KeywordT "If":rest) = case parseExpr rest of
-    Right (cond, rest') -> case parseStatement rest' of
-        Right (stmt, rest'') -> Right (If cond stmt, rest'')
-parseStatement (KeywordT "While":rest) = case parseExpr rest of
-    Right (cond, rest') -> case parseStatement rest' of
-        Right (stmt, rest'') -> Right (While cond stmt, rest'')
-parseStatement (KeywordT "Else":rest) = case parseStatement rest of
-    Right (stmt, rest') -> Right (Else stmt, rest')
-parseStatement (KeywordT "Elif":rest) = case parseExpr rest of
-    Right (cond, rest') -> case parseStatement rest' of
-        Right (stmt, rest'') -> Right (Elif cond stmt, rest'')
-parseStatement (KeywordT "Var":NameT name:EqT:rest) = case parseExpr rest of
-    Right (val, rest') -> Right (DeclAssign name val, rest')
-parseStatement (KeywordT "Var":NameT name:rest) = Right (Declare name, rest)
-parseStatement (KeywordT "Return":rest) = case parseExpr rest of
-    Right (val, rest') -> Right (Return val, rest')
-parseStatement (KeywordT "Put":rest) = case parseExpr rest of
-    Right (thing1, rest') -> case parseExpr rest' of
-        Right (thing2, rest'') -> Right (Put thing1 thing2, rest'')
-parseStatement (KeywordT "Shove":rest) = case parseExpr rest of
-    Right (thing1, rest') -> case parseExpr rest' of
-        Right (thing2, rest'') -> Right (Shove thing1 thing2, rest'')
-parseStatement (KeywordT "Kill":rest) = case parseExpr rest of
-    Right (thing, rest') -> Right (Kill thing, rest')
+parseStatement ((NameT name):EqT:(OperatorT op):rest) = do
+    parseStatement ((NameT name):EqT:(NameT name):(OperatorT op):rest)
 
-parseStatement a = case tryTemplates statementTemplates a of
-    Right thing -> Right thing
+parseStatement ((NameT name):EqT:rest) = do
+    (thing, rest') <- munchSemi $ parseExpr rest
+    return (Assign name thing, rest')
+
+parseStatement (LBrace:rest) = do
+    (stmts, rest') <- parseSemicolons rest
+    return (Block stmts, rest')
+
+parseStatement (KeywordT "If":rest) = do
+    (cond, rest') <- parseExpr rest
+    (stmt, rest'') <- parseStatement rest'
+    return (If cond stmt, rest'')
+
+parseStatement (KeywordT "While":rest) = do
+    (cond, rest') <- parseExpr rest
+    (stmt, rest'') <- parseStatement rest'
+    return (While cond stmt, rest'')
+
+parseStatement (KeywordT "Else":rest) = do
+    (stmt, rest') <- parseStatement rest
+    return (Else stmt, rest')
+
+parseStatement (KeywordT "Elif":rest) = do
+    (cond, rest') <- parseExpr rest
+    (stmt, rest'') <- parseStatement rest'
+    return (Elif cond stmt, rest'')
+
+parseStatement (KeywordT "Var":NameT name:EqT:rest) = do
+    (val, rest') <- munchSemi $ parseExpr rest
+    return (DeclAssign name val, rest')
+
+parseStatement (KeywordT "Var":NameT name:Semicolon:rest) = do
+    return (Declare name, rest)
+
+parseStatement (KeywordT "Return":rest) = do
+    (val, rest') <- munchSemi $ parseExpr rest
+    return (Return val, rest')
+
+parseStatement (KeywordT "Put":rest) = do
+    (thing1, rest') <- parseExpr rest
+    (thing2, rest'') <- munchSemi $ parseExpr rest'
+    return (Put thing1 thing2, rest'')
+
+parseStatement (KeywordT "Shove":rest) = do
+    (thing1, rest') <- parseExpr rest
+    (thing2, rest'') <- munchSemi $ parseExpr rest'
+    return (Shove thing1 thing2, rest'')
+
+parseStatement (KeywordT "Kill":rest) = do
+    (thing, rest') <- munchSemi $ parseExpr rest
+    return (Kill thing, rest')
+
+parseStatement a = munchSemi $ case tryTemplates statementTemplates a of
+    Right (thing, rest) -> Right (thing, rest)
     Left _ -> case parseExpr a of
         Right (Get obj field, EqT:rest) -> case parseExpr rest of
-            Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
+            Right (thing, Semicolon:rest') -> case fieldAssign (Get obj field, thing) of
                 Left blah -> Right (blah, rest')
-                Right blah -> error ("got a weird thing from fieldAssign " ++ show blah)
+                Right blah -> Left ("got a weird thing from fieldAssign " ++ show blah)
+            Left a -> Left a
         Right (val, rest) -> Right (Do val, rest)
-        a -> error ("parseStatement: " ++ show a)
+        a -> Left ("parseStatement: " ++ show a)
 
 
 
@@ -218,7 +259,10 @@ statementTemplates :: [ParserTemplate Statement]
 statementTemplates = [
     Template "Suspend" [MakeValue] (Command "Suspend")
     ]
-   
+munchSemi :: Either String (a, [Token]) -> Either String (a, [Token])
+munchSemi (Right (a, Semicolon:rest)) = Right (a, rest)
+munchSemi (Right (a, rest)) = Left "you're missing a semicolon!"
+munchSemi (Left a) = (Left a)
 
 
 fieldAssign :: (Expr, Expr) -> Either Statement (Expr, Expr)
@@ -231,21 +275,29 @@ parseFuncDeclArgs (RParen:rest) = Right ([], rest)
 parseFuncDeclArgs (NameT arg:RParen:rest) = Right ([arg], rest)
 parseFuncDeclArgs (NameT arg:Comma:rest) = case parseFuncDeclArgs rest of
     Right (args, rest') -> Right (arg:args, rest')
+    Left a -> Left a
+parseFuncDeclArgs a = Left ("parseDeclargs " ++ show a)
 
 parseDecl :: Parser Declaration
 parseDecl (KeywordT "Def":NameT name:LParen:rest) = case parseFuncDeclArgs rest of
     Right (args, rest') -> case parseStatement rest' of
         Right (body, rest'') -> Right (FuncDec name args body, rest'')
+        Left a -> Left a
+    Left a -> Left a
 parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
     Right (decls, RBrace:rest') -> Right (ClassDec name decls, rest')
-    Right _ -> error ("The class declaration of '" ++ name ++ "' needs a closing brace")
+    Right _ -> Left ("The class declaration of '" ++ name ++ "' needs a closing brace")
+    Left a -> Left a
 parseDecl (KeywordT "Var":NameT name:rest) = case parseExpr rest of
     Right (val, rest') -> Right (VarDec name val, rest')
+    Left a -> Left a
 parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of
     Right (prgm, RBrace:rest') -> Right (ModDec modName prgm, rest')
+    Left a -> Left a
 parseDecl (KeywordT "Operator":NameT arg1:OperatorT op:NameT arg2:rest) = case parseStatement rest of
     Right (body, rest') -> Right (FuncDec op [arg1, arg2] body, rest')
-parseDecl a = error ("parseDecl screwed up:\n" ++ show a)
+    Left a -> Left a
+parseDecl a = Left ("parseDecl screwed up:\n" ++ show a)
 
 parseDecls :: Parser [Declaration]
 parseDecls [] = Right ([], [])
@@ -258,8 +310,10 @@ parseProgram :: Parser Program
 parseProgram [] = Right (Program [] [], [])
 parseProgram (KeywordT "Import":StrT name:rest) = case parseProgram rest of
     Right (Program imports decls, rest') -> Right (Program (name:imports) decls, rest')
+    Left a -> Left a
 parseProgram a = case parseDecls a of
     Right (decls, rest) -> Right (Program [] decls, rest)
+    Left a -> Left a
 
 expression = parseExpr . tokenize
 statement = parseStatement . tokenize

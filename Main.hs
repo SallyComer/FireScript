@@ -3,15 +3,18 @@ module Main where
 import ExecScript
 import ScriptBuiltins
 import System.Environment (getArgs)
+import LineEditor
+import System.IO
 
 
 
 
 main :: IO ()
 main = do
+    (hSetBuffering stdout NoBuffering)
     cmdArgs <- getArgs
     if null cmdArgs
-        then putStrLn "You've really got to give me a file to work with!"
+        then putStr "Starting the interpreter!\nVictory!@$ " >> startTheThing
         else do
             val <- runScript (head cmdArgs)
             print val
