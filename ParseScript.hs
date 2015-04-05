@@ -156,8 +156,10 @@ parseOp (Right (a, (OperatorT ".":NameT field:rest))) = parseOp $ Right (Get a f
 
 parseOp (Right (arg1, (OperatorT op:rest))) = case parseExpr rest of
     Right (arg2, rest') -> Right (Operator op arg1 arg2, rest')
+    Left a -> Left a
 parseOp (Right (func, (LParen:rest))) = case parseCommaStuff rest of
     Right (args, RParen:rest') -> Right (Call func args, rest')
+    a -> error ("freakin' parseOp, always screwing things up!: " ++ show a)
 parseOp a = a
 
 
@@ -166,21 +168,8 @@ parseSemicolons (RBrace:rest) = Right ([], rest)
 parseSemicolons a = case parseStatement a of
     Right (stmt, rest) -> case parseSemicolons rest of
         Right (stmts, rest') -> Right (stmt:stmts, rest')
+        Left a -> Left a
 
-{-    Right (stmt@(Block _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')
-
-    Right (stmt@(If _ _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')
-
-    Right (stmt@(While _ _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')
-
-    Right (stmt@(Elif _ _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')
-
-    Right (stmt@(Else _), rest) -> case parseSemicolons rest of
-        Right (stmts, rest') -> Right (stmt:stmts, rest')-}
 
     a -> Left ("THING WITH SEMICOLONS: " ++ show a)
 
@@ -245,7 +234,7 @@ parseStatement a = munchSemi $ case tryTemplates statementTemplates a of
     Right (thing, rest) -> Right (thing, rest)
     Left _ -> case parseExpr a of
         Right (Get obj field, EqT:rest) -> case parseExpr rest of
-            Right (thing, Semicolon:rest') -> case fieldAssign (Get obj field, thing) of
+            Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
                 Left blah -> Right (blah, rest')
                 Right blah -> Left ("got a weird thing from fieldAssign " ++ show blah)
             Left a -> Left a
@@ -305,14 +294,14 @@ parseDecls (RBrace:rest) = Right ([], RBrace:rest)
 parseDecls blah = case parseDecl blah of
     Right (decl, rest) -> case parseDecls rest of
         Right (decls, rest') -> Right (decl:decls, rest')
+        Left a -> Left a
+    Left a -> Left a
 
 parseProgram :: Parser Program
-parseProgram [] = Right (Program [] [], [])
-parseProgram (KeywordT "Import":StrT name:rest) = case parseProgram rest of
-    Right (Program imports decls, rest') -> Right (Program (name:imports) decls, rest')
-    Left a -> Left a
+parseProgram [] = Right (Program [], [])
+
 parseProgram a = case parseDecls a of
-    Right (decls, rest) -> Right (Program [] decls, rest)
+    Right (decls, rest) -> Right (Program decls, rest)
     Left a -> Left a
 
 expression = parseExpr . tokenize

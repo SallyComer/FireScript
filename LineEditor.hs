@@ -8,6 +8,10 @@ import ScriptBuiltins
 import ASTData
 
 
+
+
+
+findCorrectThing (globals, locals, []) = prompt >> return (globals, locals, [])
 findCorrectThing (globals, locals, toks) = let
     stmtTrys = map parseStatement (reverse $ inits toks)
     declTrys = map parseDecl (reverse $ inits toks)
@@ -17,7 +21,7 @@ findCorrectThing (globals, locals, toks) = let
                 (Right thing) -> prompt >> return (globals, thing, rest)
                 (Left thing) -> putChar '\'' >> putStr (show thing) >> putStr "'\n" >> prompt >> return (globals, locals, rest))
             Nothing -> case find eitherToBool declTrys of
-                Just (Right (a, rest)) -> (declare globals a) >>= (\a' -> return (a', locals, rest))
+                Just (Right (a, rest)) -> (declare globals a) >>= (\a' -> prompt >> return (a', locals, rest))
                 Nothing -> case (head declTrys, head stmtTrys) of
                     (Left declCrap, Left stmtCrap) -> putStrLn ("    fix decl?: " ++ declCrap ++ "\n\n    fix stmt?: " ++ stmtCrap ++ "\n  " ++ show toks) >> scold >> return (globals, locals, toks)
 

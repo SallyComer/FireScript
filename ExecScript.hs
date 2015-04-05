@@ -257,9 +257,9 @@ flipListIO [] = return []
 flipListIO (x:xs) = x >>= (\a -> fmap (a:) (flipListIO xs)) 
 
 load :: Namespace -> Program -> IO Namespace
-load globals (Program imports decls) = do
-    globals' <- foldM obtainProgram globals imports
-    foldM declare globals' decls
+load globals (Program decls) = do
+    --globals' <- foldM obtainProgram globals
+    foldM declare globals decls
 
 loadFromScratch :: Program -> IO Namespace
 loadFromScratch prog = load (Namespace []) prog
@@ -286,5 +286,6 @@ runText text = (loadScratchText text) >>= runMain
 importProgram :: Namespace -> String -> IO Namespace
 importProgram globals text = case program text of
     Right (a, _) -> load globals a
+    Left a -> error ("thing in importProgram " ++ show a)
 
 

@@ -40,10 +40,11 @@ data Statement = Assign String Expr
 data Declaration = FuncDec String [String] Statement
     | ClassDec String [Declaration] 
     | VarDec String Expr
-    | ModDec String Program deriving (Show)
+    | ModDec String Program
+    | Import String deriving (Show)
 
 
-data Program = Program [String] [Declaration] deriving (Show)
+data Program = Program [Declaration] deriving (Show)
 
 type Parser a = [Token] -> Either String (a, [Token])
 
