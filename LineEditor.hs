@@ -28,7 +28,7 @@ findCorrectThing (globals, locals, toks) = let
 
 
 
-oneStrikeUrOut (globals, locals, []) = prompt >> return (globals, locals)
+oneStrikeUrOut (globals, locals, []) = soberPrompt >> return (globals, locals)
 oneStrikeUrOut (globals, locals, toks) = case parseStatement toks of
     Right (a, rest) -> do
         result <- exec globals locals a
