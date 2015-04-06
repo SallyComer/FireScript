@@ -39,6 +39,7 @@ instance Show Value where
     show Void = "null"
     show (FuncV _) = "<function>"
     show (Ember _) = "A burning hole in the world"
+    show (ErrorV a) = "Error: " ++ a
 
 data Namespace = Namespace [(String, Value)] deriving (Show)
 
@@ -77,7 +78,7 @@ nameExists scope str = case search str scope of
 
 unsafeSearch str scope = case search str scope of
     Right a -> a
-    Left a -> error ("Looked for name that is not in:\n"++ show scope)
+    Left a -> ErrorV ("Looked for name that is not in:\n"++ show scope)
 
 
 
@@ -102,7 +103,7 @@ evaluate globals locals (Name blah) = return $ case search blah locals of
     Right val -> val
     Left _ -> case search blah globals of
         Right val -> val
-        Left _ -> error ("'" ++ blah ++ "' is not in scope! -- evaluate name")
+        Left _ -> ErrorV ("'" ++ blah ++ "' is not in scope! -- evaluate name")
 evaluate globals locals (Get thing str) = fmap (getAttr str) (evaluate globals locals thing)
 evaluate globals locals (Method thing name args) = (evaluate globals locals thing) >>= (\a ->
     callMethod globals a (getAttr name a) (map (evaluate globals locals) args))
@@ -161,9 +162,18 @@ callMethod :: Namespace -> Value -> Value -> [IO Value] -> IO Value
 callMethod globals obj func args = callFunction globals func (return obj:args)
 
 
+
+
 exec :: Namespace -> Namespace -> Statement -> IO (Either Value Namespace)
 exec globals ls@(Namespace locals) (Assign str val) = fmap (\a -> Right $ Namespace $ (str, a):locals) (evaluate globals ls val)
-exec globals ls@(Namespace locals) (Do val) = fmap (\a -> Right $ Namespace $ ("_", a):locals) (evaluate globals ls val)
+exec globals ls@(Namespace locals) (Do val) = do
+    thing <- evaluate globals ls val
+    return $ case thing of
+        a@(ErrorV _) -> Left a
+        a -> Right $ Namespace (("_", a):locals)
+
+
+
 exec globals ls@(Namespace locals) (Return thing) = fmap Left (evaluate globals ls thing)
 
 exec globals locals (Block stmts) = fmap (\a -> case a of

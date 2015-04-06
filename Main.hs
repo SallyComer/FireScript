@@ -14,7 +14,7 @@ main = do
     (hSetBuffering stdout NoBuffering)
     cmdArgs <- getArgs
     if null cmdArgs
-        then putStr "Starting the interpreter!\nVictory!@$ " >> startTheThing
+        then putStr "Starting the interpreter!\n" >> startTheThing True
         else do
             val <- runScript (head cmdArgs)
             print val

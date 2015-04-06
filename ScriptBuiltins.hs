@@ -48,21 +48,28 @@ stdEnv = Namespace [
     ("not", adaptToVal sNot),
     ("and", adaptToVal sAnd),
     ("or", adaptToVal sOr),
-    ("input", adaptToVal sInput)]
+    ("input", adaptToVal sInput),
+    ("toString", adaptToVal sToString)]
 
 
 
 class Adaptable f where
     adapt :: f -> SFunction
 
-
+sToString :: SFunction
+sToString globals [StringV str] = return (StringV str)
+sToString globals [ObjectV a] = callMethod' globals (ObjectV a) "toString" []
+sToString globals [a] = return $ StringV $ show a
 
 sPrint :: SFunction
 sPrint globals [StringV str] = putStrLn str >> return Void
 sPrint globals [ErrorV a] = return (ErrorV a)
-sPrint globals [ObjectV a] = putStrLn "really gotta work toString into print" >> return Void
+sPrint globals [ObjectV a] = (callMethod' globals (ObjectV a) "toString" []) >>= (\(StringV str) -> putStrLn str >> return Void)
 sPrint globals [a] = print a >> return Void
 sPrint globals a = return (ErrorV (show a))
+
+callMethod' :: Namespace -> Value -> String -> [IO Value] -> IO Value
+callMethod' globals obj name args = callMethod globals obj (getAttr name obj) args
 
 sInput :: SFunction
 sInput globals [] = fmap StringV getLine
@@ -212,6 +219,9 @@ sSafeGet :: SFunction
 sSafeGet globals [thing, StringV str] = return $ case search str (getVars thing) of
     Right val -> val
     Left _ -> Void
+
+
+
 
 
 
