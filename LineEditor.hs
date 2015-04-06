@@ -78,7 +78,7 @@ getTheText acc Normal = do
 getTheText acc GettingBlock = do
     text <- getLine
     case text of
-        ":}" -> soberPrompt >> return acc
+        ":}" -> return acc
         a -> blockPrompt >> getTheText (acc ++ a) GettingBlock
 
 data ReplMode = Normal | GettingBlock deriving (Show, Eq)
