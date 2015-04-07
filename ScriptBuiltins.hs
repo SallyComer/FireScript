@@ -49,12 +49,15 @@ stdEnv = Namespace [
     ("and", adaptToVal sAnd),
     ("or", adaptToVal sOr),
     ("input", adaptToVal sInput),
-    ("toString", adaptToVal sToString)]
+    ("toString", adaptToVal sToString),
+    ("vars", adaptToVal sVars)]
 
 
 
-class Adaptable f where
-    adapt :: f -> SFunction
+
+sVars :: SFunction
+sVars globals [] = return $ StringV $ show globals
+sVars globals [a] = return $ StringV $ show (getVars a)
 
 sToString :: SFunction
 sToString globals [StringV str] = return (StringV str)
@@ -74,11 +77,10 @@ callMethod' globals obj name args = callMethod globals obj (getAttr name obj) ar
 sInput :: SFunction
 sInput globals [] = fmap StringV getLine
 
-instance Adaptable (Int -> Int -> Int) where
-    adapt f _ [NumberV a, NumberV b] = return (NumberV (f a b))
+
 
 sSubtract :: SFunction
-sSubtract = adapt ((-) :: Int -> Int -> Int)
+sSubtract globals [NumberV a, NumberV b] = return $ NumberV (a - b)
 
 sAdd :: SFunction
 sAdd globals [NumberV a, NumberV b] = return $ NumberV (a + b)
@@ -91,7 +93,7 @@ sMultiply globals [StringV a, NumberV b] = return $ StringV (concat $ replicate 
 sMultiply globals [ListV a, NumberV b] = return $ ListV (concat $ replicate b a)
 
 sDivide :: SFunction
-sDivide = adapt (div :: Int -> Int -> Int)
+sDivide globals [NumberV a, NumberV b] = return $ NumberV $ (div a b)
 
 
 sIndex :: SFunction
