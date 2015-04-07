@@ -129,7 +129,8 @@ getVars (Module m) = m
 listClass :: Namespace
 listClass = Namespace [
     ("length", adaptToVal listLength),
-    ("indexOf", adaptToVal listIndexOf)]
+    ("indexOf", adaptToVal listIndexOf),
+    ("slice", adaptToVal listSlice)]
 
 
 listLength :: SFunction
@@ -137,6 +138,10 @@ listLength globals [ListV a] = return $ NumberV $ length a
 
 listIndexOf :: SFunction
 listIndexOf globals [ListV a, b] = return $ NumberV $ length (takeWhile (/= b) a)
+
+listSlice :: SFunction
+listSlice globals [ListV l, NumberV a, NumberV b] = return $ ListV $ (slice l a b) where
+    slice xs start end = drop start (take end xs)
 
 sUpdateName :: SFunction
 sUpdateName globals [ObjectV (Namespace foo), ListV [StringV str, a]] = return $ ObjectV (Namespace ((str, a):foo))
