@@ -3,7 +3,7 @@ A Haskell-powered scripting language that has built-in support for concurrency.
 
 The interpreter can be used as a REPL if invoked with no arguments.
 
-    A multi-line statement or declaration can be entered by using
+A multi-line statement or declaration can be entered by using
 the ':{' and ':}' commands, much like in GHCI.
 
 Although variables are reassignable, data is immutable (aside from 'Embers')
