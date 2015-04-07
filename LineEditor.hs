@@ -63,7 +63,7 @@ replThing (globals, locals, toks) = do
     findCorrectThing (globals, locals, toks') >>= replThing
 
 
-
+replBetter :: (Namespace, Namespace) -> IO ()
 replBetter (globals, locals) = do
     text <- getTheText "" Normal
     oneStrikeUrOut (globals, locals, tokenize text) >>= replBetter
