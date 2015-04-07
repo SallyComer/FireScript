@@ -29,6 +29,7 @@ findCorrectThing (globals, locals, toks) = let
 
 
 oneStrikeUrOut (globals, locals, []) = soberPrompt >> return (globals, locals)
+{-
 oneStrikeUrOut (globals, locals, toks) = case parseStatement toks of
     Right (a, rest) -> do
         result <- exec globals locals a
@@ -47,6 +48,32 @@ oneStrikeUrOut (globals, locals, toks) = case parseStatement toks of
             newGlobals <- declare globals a
             soberPrompt >> return (newGlobals, locals)
         Left declCrap -> do
+            putStr "    Declaration?: "
+            putStrLn declCrap
+            putStr "\n      Statement?: "
+            putStrLn stmtCrap
+            putStrLn ("  " ++ show toks)
+            soberPrompt
+            return (globals, locals)
+-}
+oneStrikeUrOut (globals, locals, toks) = case parseDecl toks of
+    Right (a, rest) -> do
+        newGlobals <- declare globals a
+        soberPrompt >> return (newGlobals, locals)
+    Left declCrap -> case parseStatement toks of
+        Right (a, rest) -> do
+            result <- exec globals locals a
+            case result of
+                Right newLocals -> do
+                    soberPrompt
+                    return (globals, newLocals)
+                Left retVal -> do
+                    putChar '\''
+                    putStr (show retVal)
+                    putStr "'\n"
+                    soberPrompt
+                    return (globals, locals)
+        Left stmtCrap -> do
             putStr "    Declaration?: "
             putStrLn declCrap
             putStr "\n      Statement?: "

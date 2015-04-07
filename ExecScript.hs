@@ -98,6 +98,7 @@ evaluate globals locals (Str s) = return $ StringV s
 evaluate globals locals (Parens thing) = evaluate globals locals thing
 evaluate globals locals (Operator op thing1 thing2) = callOperator globals op (evaluate globals locals thing1) (evaluate globals locals thing2)
 evaluate globals locals (Call func stuff) = (evaluate globals locals func) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
+
 evaluate globals locals (List stuff) = (fmap ListV) (flipListIO $ map (evaluate globals locals) stuff)
 evaluate globals locals (Name blah) = return $ case search blah locals of
     Right val -> val
@@ -161,7 +162,9 @@ callFunction :: Namespace -> Value -> [IO Value] -> IO Value
 callFunction globals (FuncV func) args = func globals args
 callFunction globals (ObjectV obj) args | nameExists obj "__call__" = case unsafeSearch "__call__" obj of
         FuncV func -> func globals ((return $ ObjectV obj):args)
-    | otherwise = error ("object does not have a .__call__ method: " ++ show obj)
+    | otherwise = return $ ErrorV ("object does not have a .__call__ method: " ++ show obj)
+callFunction globals (ErrorV e) args = return (ErrorV e)
+callFunction globals a args = error ("unknown function?: " ++ show a)
 
 callMethod :: Namespace -> Value -> Value -> [IO Value] -> IO Value
 callMethod globals obj func args = callFunction globals func (return obj:args)
