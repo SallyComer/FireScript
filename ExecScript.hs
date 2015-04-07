@@ -163,7 +163,8 @@ callFunction globals (FuncV func) args = func globals args
 callFunction globals (ObjectV obj) args | nameExists obj "__call__" = case unsafeSearch "__call__" obj of
         FuncV func -> func globals ((return $ ObjectV obj):args)
     | otherwise = return $ ErrorV ("object does not have a .__call__ method: " ++ show obj)
-callFunction globals (ErrorV e) args = return (ErrorV e)
+callFunction globals (ErrorV e) args = fmap (\argStr -> ErrorV ("tried to call bad value with " ++ argStr ++ ": " ++ e)) mArgStr where
+    mArgStr = fmap show (flipListIO args)
 callFunction globals a args = error ("unknown function?: " ++ show a)
 
 callMethod :: Namespace -> Value -> Value -> [IO Value] -> IO Value
