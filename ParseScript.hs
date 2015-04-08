@@ -6,19 +6,6 @@ import ASTData
 
 
 
-
-
-
-
-data ParserChoice = StringContents
-    | MakeName
-    | MakeValue
-    | MakeStatement
-    | InParentheses
-    | ParenArgs
-    | SpecificKeyword String
-    | SpecificOperator String
-
 data ParserTemplate f = Template String [ParserChoice] ([UserMade] -> f)
 
 matchTemplate :: ParserChoice -> Parser UserMade
@@ -28,11 +15,15 @@ matchTemplate InParentheses (LParen:rest) = case parseExpr rest of
     Right (val, RParen:rest') -> Right (UserValue val, rest')
     Right _ -> Left "missing close parenthesis"
     Left a -> Left a
+{-
 matchTemplate key@(SpecificKeyword thing) (word:rest) | word == (KeywordT thing) = Right (UserKeyword thing, rest)
     | otherwise = Left ("expecting '" ++ thing ++ "', found '" ++ show word ++ "'")
 
 matchTemplate sym@(SpecificOperator thing) (bol:rest) | bol == (OperatorT thing) = Right (UserSymbol thing, rest)
     | otherwise = Left ("expecting '" ++ thing ++ "', found '" ++ show bol ++ "'")
+-}
+matchTemplate (SpecificToken tok) (tok':rest) | tok == tok' = Right (UserToken, rest)
+    | otherwise = Left ("expecting '" ++ show tok ++ "', found '" ++ show tok' ++ "'")
 
 matchTemplate ParenArgs (LParen:rest) = case parseCommaStuff rest of
     Right (exprs, RParen:rest') -> Right (UserArgs exprs, rest')
@@ -185,7 +176,7 @@ parseStatement ((NameT name):EqT:rest) = do
 parseStatement (LBrace:rest) = do
     (stmts, rest') <- parseSemicolons rest
     return (Block stmts, rest')
-
+{-
 parseStatement (KeywordT "If":rest) = do
     (cond, rest') <- parseExpr rest
     (stmt, rest'') <- parseStatement rest'
@@ -204,14 +195,14 @@ parseStatement (KeywordT "Elif":rest) = do
     (cond, rest') <- parseExpr rest
     (stmt, rest'') <- parseStatement rest'
     return (Elif cond stmt, rest'')
-
+-}
 parseStatement (KeywordT "Var":NameT name:EqT:rest) = do
     (val, rest') <- munchSemi $ parseExpr rest
     return (DeclAssign name val, rest')
 
 parseStatement (KeywordT "Var":NameT name:Semicolon:rest) = do
     return (Declare name, rest)
-
+{-
 parseStatement (KeywordT "Return":rest) = do
     (val, rest') <- munchSemi $ parseExpr rest
     return (Return val, rest')
@@ -229,7 +220,7 @@ parseStatement (KeywordT "Shove":rest) = do
 parseStatement (KeywordT "Kill":rest) = do
     (thing, rest') <- munchSemi $ parseExpr rest
     return (Kill thing, rest')
-
+-}
 parseStatement a = munchSemi $ case tryTemplates statementTemplates a of
     Right (thing, rest) -> Right (thing, rest)
     Left _ -> case parseExpr a of
@@ -246,7 +237,15 @@ parseStatement a = munchSemi $ case tryTemplates statementTemplates a of
 statementTemplates :: [ParserTemplate Statement]
 
 statementTemplates = [
-    Template "Suspend" [MakeValue] (Command "Suspend")
+    Template "Suspend" [MakeValue] (Command "Suspend"),
+    Template "If" [InParentheses, MakeStatement] (Command "If"),
+    Template "While" [InParentheses, MakeStatement] (Command "While"),
+    Template "Else" [MakeStatement] (Command "Else"),
+    Template "Elif" [InParentheses, MakeStatement] (Command "Elif"),
+    Template "Return" [MakeValue] (Command "Return"),
+    Template "Put" [MakeValue, SpecificToken Comma, MakeValue] (Command "Put"),
+    Template "Kill" [MakeValue] (Command "Kill"),
+    Template "Shove" [MakeValue, SpecificToken Comma, MakeValue] (Command "Shove")
     ]
 munchSemi :: Either String (a, [Token]) -> Either String (a, [Token])
 munchSemi (Right (a, Semicolon:rest)) = Right (a, rest)

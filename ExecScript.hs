@@ -183,20 +183,20 @@ exec globals ls@(Namespace locals) (Do val) = do
 
 
 
-exec globals ls@(Namespace locals) (Return thing) = fmap Left (evaluate globals ls thing)
+exec globals ls@(Namespace locals) (Command "Return" [UserValue thing]) = fmap Left (evaluate globals ls thing)
 
 exec globals locals (Block stmts) = fmap (\a -> case a of
     Left thing -> Left thing
     Right blah -> Right $ updateNames locals blah) (execs globals locals stmts)
 
-exec globals locals (While val stmt) = (evaluate globals locals val) >>= (\a -> if isTrue a then condTrue' else condFalse) where
-    condTrue (Right locals') = exec globals locals' (While val stmt)
+exec globals locals w@(Command "While" [UserValue val, UserCommand stmt]) = (evaluate globals locals val) >>= (\a -> if isTrue a then condTrue' else condFalse) where
+    condTrue (Right locals') = exec globals locals' w
     condTrue (Left blah) = return (Left blah)
     condTrue' = (exec globals locals stmt) >>= condTrue
     condFalse = return (Right locals)
 
 
-exec globals locals (If val stmt) = (evaluate globals locals val) >>= (\a -> if isTrue a then condTrue else condFalse) where
+exec globals locals (Command "If" [UserValue val, UserCommand stmt]) = (evaluate globals locals val) >>= (\a -> if isTrue a then condTrue else condFalse) where
     condTrue = (exec globals locals stmt) >>= (\blah -> return $ case blah of
         Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))
         Left thing -> Left thing)
@@ -204,13 +204,13 @@ exec globals locals (If val stmt) = (evaluate globals locals val) >>= (\a -> if 
         (Namespace locals') -> Right (Namespace (("@", NumberV 0):locals'))
 
 
-exec globals locals (Elif val stmt) = (evaluate globals locals val) >>= (\a -> if ((varEq "@" (NumberV 0) locals) && isTrue a) then condTrue else condFalse) where
+exec globals locals (Command "Elif" [UserValue val, UserCommand stmt]) = (evaluate globals locals val) >>= (\a -> if ((varEq "@" (NumberV 0) locals) && isTrue a) then condTrue else condFalse) where
     condTrue = (exec globals locals stmt) >>= (\blah -> return $ case blah of
         Right (Namespace locals') -> Right (Namespace (("@", NumberV 1):locals'))
         Left thing -> Left thing)
     condFalse = return $ Right locals
 
-exec globals locals (Else stmt)
+exec globals locals (Command "Else" [UserCommand stmt])
     | (varEq "@" (NumberV 0) locals) = exec globals locals stmt
     | otherwise = return $ Right locals
 
@@ -219,20 +219,20 @@ exec globals locals (Else stmt)
 exec globals (Namespace locals) (Declare name) = return $ Right $ Namespace ((name, Void):locals)
 exec globals ls@(Namespace locals) (DeclAssign name val) = fmap (\a -> Right $ Namespace $ (name, a):locals) (evaluate globals ls val)
 
-exec globals locals (Put ember val) = do
+exec globals locals (Command "Put" [UserValue ember, UserToken, UserValue val]) = do
     val' <- evaluate globals locals val
     ember' <- evaluate globals locals ember
     case ember' of
         Ember (e', _) -> putMVar e' val'
     return (Right locals)
 
-exec globals locals (Shove ember v) = do
+exec globals locals (Command "Shove" [UserValue ember, UserToken, UserValue v]) = do
     (Ember (e, _)) <- evaluate globals locals ember
     val <- evaluate globals locals v
     tryPutMVar e val
     swapMVar e val
     return (Right locals)
-exec globals locals (Kill ember) = do
+exec globals locals (Command "Kill" [UserValue ember]) = do
     (Ember (_, tId)) <- evaluate globals locals ember
     killThread tId
     return (Right locals)

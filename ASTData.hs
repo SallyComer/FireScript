@@ -24,16 +24,16 @@ data Expr = Number Int
 data Statement = Assign String Expr
     | Do Expr
     | Block [Statement]
-    | While Expr Statement
-    | If Expr Statement
-    | Else Statement
-    | Elif Expr Statement
+--    | While Expr Statement
+--    | If Expr Statement
+--    | Else Statement
+--    | Elif Expr Statement
     | Declare String
     | DeclAssign String Expr
-    | Return Expr
-    | Put Expr Expr
-    | Shove Expr Expr
-    | Kill Expr
+--    | Return Expr
+--    | Put Expr Expr
+--    | Shove Expr Expr
+--    | Kill Expr
     | Command String [UserMade] deriving (Show, Eq)
 
 
@@ -57,4 +57,16 @@ data UserMade = UserString String
     | UserCommand Statement
     | UserKeyword String
     | UserSymbol String
-    | UserArgs [Expr] deriving (Show, Eq)
+    | UserArgs [Expr]
+    | UserToken deriving (Show, Eq)
+
+
+data ParserChoice = StringContents
+    | MakeName
+    | MakeValue
+    | MakeStatement
+    | InParentheses
+    | ParenArgs
+    | SpecificKeyword String
+    | SpecificOperator String
+    | SpecificToken Token
