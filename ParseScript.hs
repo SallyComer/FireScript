@@ -131,7 +131,7 @@ parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
 
 parseExpr (LParen:rest) = parseOp $ case (parseOp $ parseExpr rest) of
     Right (thing, (RParen:rest')) -> Right (Parens thing, rest')
-    Right (thing, a) -> Left ("%%%%%\nMissing a closing parentheses:\n  " ++ show thing ++ show a ++ "\n%%%%%\n")
+    Right (thing, a) -> Left (" Missing a closing parentheses:\n  " ++ show thing ++ show a ++ " ")
     Left a -> Left a
 parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
     Right (items, (RBracket:rest')) -> Right (List items, rest')
