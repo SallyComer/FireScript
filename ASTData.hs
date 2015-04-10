@@ -17,7 +17,8 @@ data Expr = Number Int
     | Ignite
     | MemberAccess Expr String
     | Lambda [String] Statement
-    | Form String [UserMade] deriving (Show, Eq)
+    | Form String [UserMade]
+    | Tuple [Expr] deriving (Show, Eq)
 
 
 
