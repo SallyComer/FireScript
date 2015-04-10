@@ -144,6 +144,8 @@ parseFullExpr (Just thing) (OperatorT op:toks) = case parseExpr' toks of
 parseFullExpr Nothing toks = case parseExpr' toks of
     Right (thing, rest) -> parseFullExpr (Just thing) rest
     Left a -> Left a
+parseFullExpr (Just (Get thing name)) (LParen:toks) = case parseExpr' (LParen:toks) of
+    Right (Tuple tup, rest) -> Right (Method thing name tup, rest)
 parseFullExpr (Just thing) (LParen:toks) = case parseExpr' (LParen:toks) of
     Right (Tuple tup, rest) -> Right (Call thing tup, rest)
     Right (other, _) -> Left "Syntax error: you've got to use parentheses to call"
