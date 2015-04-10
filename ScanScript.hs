@@ -96,3 +96,6 @@ tokenize text = case clausesDoStr scriptClauses (text ++ " ") of
     (_, (_, _, tokens)) -> tokens
 
 blah = clausesDoStr scriptClauses
+
+isStringOperator :: String -> Bool
+isStringOperator (thing:stuff) = (isOperatorStart thing) && all isOperator stuff

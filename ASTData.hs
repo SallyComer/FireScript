@@ -57,9 +57,8 @@ data UserMade = UserString String
     | UserValue Expr
     | UserCommand Statement
     | UserKeyword String
-    | UserSymbol String
     | UserArgs [Expr]
-    | UserToken deriving (Show, Eq)
+    | UserToken Token deriving (Show, Eq)
 
 
 data ParserChoice = StringContents

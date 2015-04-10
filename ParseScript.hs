@@ -22,7 +22,7 @@ matchTemplate key@(SpecificKeyword thing) (word:rest) | word == (KeywordT thing)
 matchTemplate sym@(SpecificOperator thing) (bol:rest) | bol == (OperatorT thing) = Right (UserSymbol thing, rest)
     | otherwise = Left ("expecting '" ++ thing ++ "', found '" ++ show bol ++ "'")
 -}
-matchTemplate (SpecificToken tok) (tok':rest) | tok == tok' = Right (UserToken, rest)
+matchTemplate (SpecificToken tok) (tok':rest) | tok == tok' = Right (UserToken tok', rest)
     | otherwise = Left ("expecting '" ++ show tok ++ "', found '" ++ show tok' ++ "'")
 
 matchTemplate ParenArgs (LParen:rest) = case parseCommaStuff rest of
@@ -372,7 +372,7 @@ parseDecl (KeywordT "Class":NameT name:LBrace:rest) = case parseDecls rest of
     Right (decls, RBrace:rest') -> Right (ClassDec name decls, rest')
     Right _ -> Left ("The class declaration of '" ++ name ++ "' needs a closing brace")
     Left a -> Left a
-parseDecl (KeywordT "Var":NameT name:rest) = case parseExpr rest of
+parseDecl (KeywordT "Var":NameT name:rest) = case munchSemi $ parseExpr rest of
     Right (val, rest') -> Right (VarDec name val, rest')
     Left a -> Left a
 parseDecl (KeywordT "Module":NameT modName:LBrace:rest) = case parseProgram rest of
