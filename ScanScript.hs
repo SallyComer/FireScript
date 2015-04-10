@@ -17,8 +17,7 @@ data Token = OperatorT String
     | Comma
     | Semicolon 
     | KeywordT String
-    | EqT 
-    | Newline deriving (Show, Eq)
+    | EqT deriving (Show, Eq)
 
 
 readOperator :: Reader Token
@@ -95,7 +94,7 @@ scriptClauses = [
 
 tokenize :: String -> [Token]
 tokenize text = case clausesDoStr scriptClauses (text ++ " ") of
-    (_, (_, _, tokens)) -> (filter (/= Newline) tokens)
+    (_, (_, _, tokens)) -> tokens
 
 blah = clausesDoStr scriptClauses
 
