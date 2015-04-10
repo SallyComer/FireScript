@@ -87,8 +87,9 @@ unToken RBrace = "}"
 unToken LParen = "("
 unToken RParen = ")"
 unToken Comma = ","
-unToken Semicolon = ";"
+unToken Semicolon = ";\n"
 unToken EqT = "="
+
 
 
 unTokens :: [Token] -> String
