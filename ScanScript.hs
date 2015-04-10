@@ -95,7 +95,7 @@ scriptClauses = [
 
 tokenize :: String -> [Token]
 tokenize text = case clausesDoStr scriptClauses (text ++ " ") of
-    (_, (_, _, tokens)) -> tokens
+    (_, (_, _, tokens)) -> (filter (/= Newline) tokens)
 
 blah = clausesDoStr scriptClauses
 
