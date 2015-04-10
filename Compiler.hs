@@ -25,6 +25,8 @@ unExpression (Call func args) = unExpression func ++ (unExpression $ Tuple args)
 unExpression (Method obj name args) = unExpression obj ++ [OperatorT ".", NameT name] ++ (unExpression $ Tuple args)
 unExpression (MemberAccess namespace name) = unExpression namespace ++ [OperatorT "::", NameT name]
 unExpression (Get obj name) = unExpression obj ++ [OperatorT ".", NameT name]
+unExpression (Parens expr) = LParen : unExpression expr ++ [RParen]
+unExpression a = error $ "unExpression: " ++ show a
 
 
 
@@ -69,3 +71,25 @@ unDecls stuff = (stuff >>= unDecl)
 
 unProgram :: Program -> [Token]
 unProgram (Program prgrm) = unDecls prgrm
+
+
+
+unToken :: Token -> String
+unToken (OperatorT op) = op
+unToken (NumberT i) = show i
+unToken (NameT name) = name
+unToken (StrT str) = show str
+unToken (KeywordT word) = word
+unToken LBracket = "["
+unToken RBracket = "]"
+unToken LBrace = "{"
+unToken RBrace = "}"
+unToken LParen = "("
+unToken RParen = ")"
+unToken Comma = ","
+unToken Semicolon = ";"
+unToken EqT = "="
+
+
+unTokens :: [Token] -> String
+unTokens toks = unwords (fmap unToken toks)
