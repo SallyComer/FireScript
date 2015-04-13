@@ -42,8 +42,9 @@ matchTemplate MakeStatement tokens = case parseStatement tokens of
 
 accomplishTemplate :: ParserTemplate f -> Parser f
 accomplishTemplate (Template key blueprint reifier) (KeywordT foo:rest) | key == foo = case parseByTemplate blueprint rest of
-    Right (result, rest') -> Right (reifier result, rest')
-    Left a -> Left a
+        Right (result, rest') -> Right (reifier result, rest')
+        Left a -> Left a
+    | otherwise = Left $ "didn't work " ++ foo
 accomplishTemplate _ _ = Left "ain't a template form"
 
 parseByTemplate :: [ParserChoice] -> Parser [UserMade]
@@ -166,83 +167,6 @@ dealWithOp "::" first second = Left $ "messed up member access"
 dealWithOp op first second = Right $ Operator op first second
 
 
-{- BEGINNING OF EXCISION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parseCommaStuff :: Parser [Expr]
-parseCommaStuff (RParen:rest) = Right ([], RParen:rest)
-parseCommaStuff (RBracket:rest) = Right ([], RBracket:rest)
-parseCommaStuff a = case parseExpr a of
-    Right (thing, (Comma:rest)) -> case parseCommaStuff rest of
-        Right (things, rest') -> Right (thing:things, rest')
-    Right (thing, rest) -> Right ([thing], rest)
-    Left thing -> Left thing
-
-parseExpr :: Parser Expr
-parseExpr stuff@(NameT name_:OperatorT "::":rest_) = parseOp $ Right $ (\(a, b) -> (b, a)) (fmap makeMemberAccess (extentOfColon stuff)) where
-    extentOfColon :: [Token] -> ([Token], [String])
-    extentOfColon (NameT name:OperatorT "::":rest) = case extentOfColon rest of
-        (rest', things) -> (rest', name:things)
-    extentOfColon (NameT name:rest) = (rest, [name])
-    makeMemberAccess :: [String] -> Expr
-    makeMemberAccess [foo] = Name foo
-    makeMemberAccess foo = MemberAccess (makeMemberAccess (init foo)) (last foo)
-
-parseExpr (KeywordT "Lambda":LParen:rest) = do
-    (args, rest') <- parseFuncDeclArgs rest
-    (body, rest'') <- parseStatement rest'
-    return (Lambda args body, rest'')
-
-parseExpr (KeywordT "Ignite":rest) = parseOp $ Right (Ignite, rest)
-
-parseExpr (KeywordT "Spark":rest) = parseOp $ do
-    (thing, rest') <- parseExpr rest
-    return (Spark thing, rest')
-
-parseExpr (KeywordT "Take":rest) = parseOp $ do
-    (thing, rest') <- parseExpr rest
-    return (Take thing, rest')
-
-parseExpr (KeywordT "Read":rest) = parseOp $ do
-    (thing, rest') <- parseExpr rest
-    return (Read thing, rest')
-
-
-parseExpr ((NameT name):LParen:rest) = parseOp $ case parseCommaStuff rest of
-    Right (args, (RParen:rest')) -> Right (Call (Name name) args, rest')
-    Right (args, rest') -> Left $ "You've got some missing close parens in the DECL of " ++ name
-    Left a -> Left a
-
-parseExpr (NumberT a:rest) = parseOp $ Right (Number a, rest)
-parseExpr (NameT a:rest) = parseOp $ Right (Name a, rest)
-parseExpr (StrT a:rest) = parseOp $ Right (Str a, rest)
-
-parseExpr (LParen:rest) = parseOp $ case (parseOp $ parseExpr rest) of
-    Right (thing, (RParen:rest')) -> Right (Parens thing, rest')
-    Right (thing, a) -> Left (" Missing a closing parentheses:\n  " ++ show thing ++ show a ++ " ")
-    Left a -> Left a
-parseExpr (LBracket:rest) = parseOp $ case parseCommaStuff rest of
-    Right (items, (RBracket:rest')) -> Right (List items, rest')
-    a -> Left ("stuff with brackets: " ++ show a)
-parseExpr a = Left ("some screwup with expressions: " ++ show a)
-
-parseOp (Right (a, (OperatorT ".":NameT field:LParen:rest))) = parseOp $ case parseCommaStuff rest of
-    Right (args, (RParen:rest')) -> Right (Method a field args, rest')
-
-parseOp (Right (a, (OperatorT ".":NameT field:rest))) = parseOp $ Right (Get a field, rest)
-
-
-
-parseOp (Right (arg1, (OperatorT op:rest))) = case parseExpr rest of
-    Right (arg2, rest') -> Right (Operator op arg1 arg2, rest')
-    Left a -> Left a
-parseOp (Right (func, (LParen:rest))) = case parseCommaStuff rest of
-    Right (args, RParen:rest') -> Right (Call func args, rest')
-    a -> error ("freakin' parseOp, always screwing things up!: " ++ show a)
-parseOp a = a
-
-END OF EXCISION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--}
-
-
 
 
 
@@ -258,7 +182,7 @@ parseSemicolons a = case parseStatement a of
         Left a -> Left a
 
 
-    a -> Left ("THING WITH SEMICOLONS: " ++ show a)
+    (Left a) -> Left ("THING WITH SEMICOLONS: " ++ a)
 
 
 parseStatement :: Parser Statement
@@ -272,80 +196,44 @@ parseStatement ((NameT name):EqT:rest) = do
 parseStatement (LBrace:rest) = do
     (stmts, rest') <- parseSemicolons rest
     return (Block stmts, rest')
-{-
-parseStatement (KeywordT "If":rest) = do
-    (cond, rest') <- parseExpr rest
-    (stmt, rest'') <- parseStatement rest'
-    return (If cond stmt, rest'')
 
-parseStatement (KeywordT "While":rest) = do
-    (cond, rest') <- parseExpr rest
-    (stmt, rest'') <- parseStatement rest'
-    return (While cond stmt, rest'')
-
-parseStatement (KeywordT "Else":rest) = do
-    (stmt, rest') <- parseStatement rest
-    return (Else stmt, rest')
-
-parseStatement (KeywordT "Elif":rest) = do
-    (cond, rest') <- parseExpr rest
-    (stmt, rest'') <- parseStatement rest'
-    return (Elif cond stmt, rest'')
--}
 parseStatement (KeywordT "Var":NameT name:EqT:rest) = do
     (val, rest') <- munchSemi $ parseExpr rest
     return (DeclAssign name val, rest')
 
 parseStatement (KeywordT "Var":NameT name:Semicolon:rest) = do
     return (Declare name, rest)
-{-
-parseStatement (KeywordT "Return":rest) = do
-    (val, rest') <- munchSemi $ parseExpr rest
-    return (Return val, rest')
 
-parseStatement (KeywordT "Put":rest) = do
-    (thing1, rest') <- parseExpr rest
-    (thing2, rest'') <- munchSemi $ parseExpr rest'
-    return (Put thing1 thing2, rest'')
-
-parseStatement (KeywordT "Shove":rest) = do
-    (thing1, rest') <- parseExpr rest
-    (thing2, rest'') <- munchSemi $ parseExpr rest'
-    return (Shove thing1 thing2, rest'')
-
-parseStatement (KeywordT "Kill":rest) = do
-    (thing, rest') <- munchSemi $ parseExpr rest
-    return (Kill thing, rest')
--}
-parseStatement a = munchSemi $ case tryTemplates statementTemplates a of
+parseStatement asdf = case tryTemplates statementTemplates asdf of
     Right (thing, rest) -> Right (thing, rest)
-    Left _ -> case parseExpr a of
+    Left screwup -> case parseExpr asdf of
         Right (Get obj field, EqT:rest) -> case parseExpr rest of
-            Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
+            Right (thing, Semicolon:rest') -> case fieldAssign (Get obj field, thing) of
                 Left blah -> Right (blah, rest')
                 Right blah -> Left ("got a weird thing from fieldAssign " ++ show blah)
+            Right (thing, rest') -> Left $ "Problem: " ++ show thing ++ ", ALSO: " ++ show rest'
             Left a -> Left a
         Right (val, rest) -> Right (Do val, rest)
-        a -> Left ("parseStatement: " ++ show a)
+        Left a -> Left ("parseStatement: " ++ screwup ++ " IN ADDITION TO: "++ a)
 
 
 
 statementTemplates :: [ParserTemplate Statement]
 
 statementTemplates = [
-    Template "Suspend" [MakeValue] (Command "Suspend"),
+    Template "Suspend" [MakeValue, SpecificToken Semicolon] (Command "Suspend"),
     Template "If" [InParentheses, MakeStatement] (Command "If"),
     Template "While" [InParentheses, MakeStatement] (Command "While"),
     Template "Else" [MakeStatement] (Command "Else"),
     Template "Elif" [InParentheses, MakeStatement] (Command "Elif"),
-    Template "Return" [MakeValue] (Command "Return"),
-    Template "Put" [MakeValue, SpecificToken Comma, MakeValue] (Command "Put"),
-    Template "Kill" [MakeValue] (Command "Kill"),
-    Template "Shove" [MakeValue, SpecificToken Comma, MakeValue] (Command "Shove")
+    Template "Return" [MakeValue, SpecificToken Semicolon] (Command "Return"),
+    Template "Put" [MakeValue, SpecificToken Comma, MakeValue, SpecificToken Semicolon] (Command "Put"),
+    Template "Kill" [MakeValue, SpecificToken Semicolon] (Command "Kill"),
+    Template "Shove" [MakeValue, SpecificToken Comma, MakeValue, SpecificToken Semicolon] (Command "Shove")
     ]
-munchSemi :: Either String (a, [Token]) -> Either String (a, [Token])
+munchSemi :: Show a => Either String (a, [Token]) -> Either String (a, [Token])
 munchSemi (Right (a, Semicolon:rest)) = Right (a, rest)
-munchSemi (Right (a, rest)) = Left "you're missing a semicolon!"
+munchSemi (Right (a, rest)) = Left $ "you're missing a semicolon: " ++ show a ++ " and here's the rest: " ++ show rest
 munchSemi (Left a) = (Left a)
 
 
