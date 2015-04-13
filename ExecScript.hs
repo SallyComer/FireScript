@@ -219,14 +219,14 @@ exec globals locals (Command "Else" [UserCommand stmt])
 exec globals (Namespace locals) (Declare name) = return $ Right $ Namespace ((name, Void):locals)
 exec globals ls@(Namespace locals) (DeclAssign name val) = fmap (\a -> Right $ Namespace $ (name, a):locals) (evaluate globals ls val)
 
-exec globals locals (Command "Put" [UserValue ember, UserToken, UserValue val]) = do
+exec globals locals (Command "Put" [UserValue ember, UserToken _, UserValue val]) = do
     val' <- evaluate globals locals val
     ember' <- evaluate globals locals ember
     case ember' of
         Ember (e', _) -> putMVar e' val'
     return (Right locals)
 
-exec globals locals (Command "Shove" [UserValue ember, UserToken, UserValue v]) = do
+exec globals locals (Command "Shove" [UserValue ember, UserToken _, UserValue v]) = do
     (Ember (e, _)) <- evaluate globals locals ember
     val <- evaluate globals locals v
     tryPutMVar e val
