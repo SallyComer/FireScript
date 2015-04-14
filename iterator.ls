@@ -28,7 +28,7 @@ Class listIter {
         Return self;
     }
     Def next(self) {
-        Return (Get self.pipe);
+        Return (Take (self.pipe));
     }
 }
 

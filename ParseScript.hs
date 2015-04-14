@@ -207,13 +207,12 @@ parseStatement (KeywordT "Var":NameT name:Semicolon:rest) = do
 parseStatement asdf = case tryTemplates statementTemplates asdf of
     Right (thing, rest) -> Right (thing, rest)
     Left screwup -> case parseExpr asdf of
-        Right (Get obj field, EqT:rest) -> case parseExpr rest of
-            Right (thing, Semicolon:rest') -> case fieldAssign (Get obj field, thing) of
+        Right (Get obj field, EqT:rest) -> case munchSemi $ parseExpr rest of
+            Right (thing, rest') -> case fieldAssign (Get obj field, thing) of
                 Left blah -> Right (blah, rest')
                 Right blah -> Left ("got a weird thing from fieldAssign " ++ show blah)
-            Right (thing, rest') -> Left $ "Problem: " ++ show thing ++ ", ALSO: " ++ show rest'
             Left a -> Left a
-        Right (val, rest) -> Right (Do val, rest)
+        Right (val, rest) -> munchSemi $ Right (Do val, rest)
         Left a -> Left ("parseStatement: " ++ screwup ++ " IN ADDITION TO: "++ a)
 
 

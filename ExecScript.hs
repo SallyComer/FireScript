@@ -96,6 +96,7 @@ evaluate globals locals Ignite = fmap Ember ((,) <$> newEmptyMVar <*> myThreadId
 evaluate globals locals (Number i) = return $ NumberV i
 evaluate globals locals (Str s) = return $ StringV s
 evaluate globals locals (Parens thing) = evaluate globals locals thing
+evaluate globals locals (Tuple (thing:_)) = evaluate globals locals thing
 evaluate globals locals (Operator op thing1 thing2) = callOperator globals op (evaluate globals locals thing1) (evaluate globals locals thing2)
 evaluate globals locals (Call func stuff) = (evaluate globals locals func) >>= (\a -> callFunction globals a (map (evaluate globals locals) stuff))
 
@@ -115,6 +116,7 @@ evaluate globals locals@(Namespace ls) (Lambda args body) = return $ FuncV $ fun
         Left val -> val) ((makeLocals argVals) >>= (\b -> exec globals' b body))
     makeLocals :: [IO Value] -> IO Namespace
     makeLocals argVals = fmap (\a -> Namespace $ (zip args a) ++ ls) (flipListIO argVals)
+evaluate globals locals a = error $ "evaluate doesn't understand: " ++ show a
 
 
 getAttr :: String -> Value -> Value
@@ -183,7 +185,7 @@ exec globals ls@(Namespace locals) (Do val) = do
 
 
 
-exec globals ls@(Namespace locals) (Command "Return" [UserValue thing]) = fmap Left (evaluate globals ls thing)
+exec globals ls@(Namespace locals) (Command "Return" [UserValue thing, UserToken _]) = fmap Left (evaluate globals ls thing)
 
 exec globals locals (Block stmts) = fmap (\a -> case a of
     Left thing -> Left thing
@@ -219,28 +221,28 @@ exec globals locals (Command "Else" [UserCommand stmt])
 exec globals (Namespace locals) (Declare name) = return $ Right $ Namespace ((name, Void):locals)
 exec globals ls@(Namespace locals) (DeclAssign name val) = fmap (\a -> Right $ Namespace $ (name, a):locals) (evaluate globals ls val)
 
-exec globals locals (Command "Put" [UserValue ember, UserToken _, UserValue val]) = do
+exec globals locals (Command "Put" [UserValue ember, UserToken _, UserValue val, UserToken _]) = do
     val' <- evaluate globals locals val
     ember' <- evaluate globals locals ember
     case ember' of
         Ember (e', _) -> putMVar e' val'
     return (Right locals)
 
-exec globals locals (Command "Shove" [UserValue ember, UserToken _, UserValue v]) = do
+exec globals locals (Command "Shove" [UserValue ember, UserToken _, UserValue v, UserToken _]) = do
     (Ember (e, _)) <- evaluate globals locals ember
     val <- evaluate globals locals v
     tryPutMVar e val
     swapMVar e val
     return (Right locals)
-exec globals locals (Command "Kill" [UserValue ember]) = do
+exec globals locals (Command "Kill" [UserValue ember, UserToken _]) = do
     (Ember (_, tId)) <- evaluate globals locals ember
     killThread tId
     return (Right locals)
 
-exec globals locals (Command "Suspend" [UserValue thing]) = (evaluate globals locals thing) >>= (\a -> case a of
+exec globals locals (Command "Suspend" [UserValue thing, UserToken _]) = (evaluate globals locals thing) >>= (\a -> case a of
     NumberV i -> (threadDelay i) >> return (Right locals)
     notANumber -> error (show notANumber ++ " is not a number usable for a thread delay"))
-    
+exec globals locals a = error $ "exec doesn't understand: " ++ show a
 
 isTrue (NumberV 0) = False
 isTrue (StringV "") = False
