@@ -213,7 +213,9 @@ parseStatement asdf = case tryTemplates statementTemplates asdf of
                 Right blah -> Left ("got a weird thing from fieldAssign " ++ show blah)
             Left a -> Left a
         Right (val, rest) -> munchSemi $ Right (Do val, rest)
-        Left a -> Left ("parseStatement: " ++ screwup ++ " IN ADDITION TO: "++ a)
+        Left a -> case asdf of
+            KeywordT key:rest -> Left $ "parseStatement: '" ++ key ++ "' is not a supported keyword"
+            _ -> Left ("parseStatement: " ++ screwup ++ " IN ADDITION TO: "++ a)
 
 
 
